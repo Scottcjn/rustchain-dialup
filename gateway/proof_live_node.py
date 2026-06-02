@@ -25,12 +25,12 @@ def build_signed_attestation(miner_id: str, nonce: str, device_type: str = "vint
         # Use G4 PowerBook to expect 2.5x multiplier per docs
         device = {"family": "PowerPC", "arch": "G4", "model": "PowerBook G4"}
         hostname = "g4-powerbook-115"
-        miner_wallet = "RTCtestwallet"
+        miner_wallet = "RTC098e25e51a040523855f3b080844a5f89d84c29a"
     else:
         # Modern x86
         device = {"family": "x86_64", "arch": "amd64", "model": "Ryzen 9"}
         hostname = "modern-box"
-        miner_wallet = "RTCtestwallet_modern"
+        miner_wallet = "RTC098e25e51a040523855f3b080844a5f89d84c29a"
 
     import secrets
     att = {
