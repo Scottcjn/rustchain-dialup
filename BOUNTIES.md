@@ -10,7 +10,7 @@ see the [Sanctuary](https://github.com/Scottcjn/Rustchain) ethos.
 > phone line. The oldest, slowest hardware earns the **highest** RIP-200 antiquity multiplier. That's
 > the whole game.
 
-RTC amounts are quoted at the current **$0.10/RTC** internal reference. Per the ecosystem rate
+RTC amounts are quoted at the current **$0.15/RTC** internal reference (crossed **1,000+ holders** 2026-06-02). Per the ecosystem rate
 schedule, *nominal RTC drops as the holder count climbs* (USD value per task stays roughly stable) —
 amounts here are the ceiling at today's rate, not a forward guarantee. RTC is an internal token with
 **no fiat off-ramp**; we never promise USD conversion.
@@ -23,26 +23,26 @@ Each maps to a roadmap phase in the [README](README.md). **One bounty per PR.**
 
 | # | Bounty | RTC | Phase |
 |---|--------|-----|-------|
-| D1 | **Bench answer + init**: ModemManager masked, no serial-getty on the ACM port, `mgetty` answers a call from a second modem, raw terminal login works modem↔modem. Include the exact init string + `mgetty` config + a recorded session log. | 25 | 1 |
-| D2 | **PPP server, hardened**: `pppd` with fixed local/remote addrs, `mru/mtu 576`, working **TCP MSS clamp**, nftables MASQUERADE, on an **isolated subnet** with verified default-deny to RFC1918. Prove a clamped HTTP GET completes at 9600. | 40 | 2 |
-| D3 | **Network-isolation ruleset**: a reviewed nftables (or netns/VLAN) config that confines `ppp0` to WAN egress + DNS + the gateway IP + BBS, blocks PPP↔PPP and PPP→lab, logs sessions. Include a test matrix proving each deny. | 25 | 2 |
-| D4 | **ENiGMA½ locked launcher**: BBS reachable on the terminal line via an unprivileged launcher (no host shell escape), OS accounts ≠ BBS accounts. Include the launcher + a documented escape-attempt test. | 30 | 3 |
-| D5 | **Miner gateway (Phase 4a)**: a tested skeleton already exists in [`gateway/`](gateway/) (line protocol + key-free guards + mock-node self-test, 4/4 green). **This bounty = validate it against a LIVE node**: point `--node-url` at a real RustChain node, relay a real Ed25519-signed attestation, and prove the node **accepts** it with the correct antiquity multiplier. Per [MINER_GATEWAY.md](docs/MINER_GATEWAY.md). | 40 | 4a |
-| D6 | **Portable C evidence+sign client** for ONE vintage OS (486 Linux/NetBSD first): gathers HW signals, Ed25519-signs locally, talks the gateway line protocol. Node must accept a real attestation at the correct antiquity multiplier. | 50 / OS | 4b |
-| D7 | **Big-endian signature round-trip**: prove the evidence wire-format + Ed25519 signature verifies from a big-endian target (G3/G4 or 68k). | 30 | 4c |
-| D8 | **AutoPPP single-line mux (Phase 5)**: one number serves both BBS and PPP reliably, *after* both work on separate lines. Include the `login.config` `/AutoPPP/` rule + detection-window tuning + failure-mode notes. | 25 | 5 |
-| D9 | **BBS⇄RustChain door**: in-BBS wallet balance + attestation status + a "mine while you read" panel, talking only to the narrow gateway API. | 30 | 5 |
-| D10 | **VoIP↔analog modem relay**: a real 9600/V.34 data call survives Asterisk + HT802 with G.711 PCMU only, no transcoding, VAD off. Document the dial plan + codec config + the achieved rate. | 40 | 6 |
-| D11 | **Multi-line ops**: stable `udev` names, one `mgetty` per port, health watchdog + modem-reset recovery, monitoring. | 25 | 7 |
+| D1 | **Bench answer + init**: ModemManager masked, no serial-getty on the ACM port, `mgetty` answers a call from a second modem, raw terminal login works modem↔modem. Include the exact init string + `mgetty` config + a recorded session log. | 15 | 1 |
+| D2 | **PPP server, hardened**: `pppd` with fixed local/remote addrs, `mru/mtu 576`, working **TCP MSS clamp**, nftables MASQUERADE, on an **isolated subnet** with verified default-deny to RFC1918. Prove a clamped HTTP GET completes at 9600. | 25 | 2 |
+| D3 | **Network-isolation ruleset**: a reviewed nftables (or netns/VLAN) config that confines `ppp0` to WAN egress + DNS + the gateway IP + BBS, blocks PPP↔PPP and PPP→lab, logs sessions. Include a test matrix proving each deny. | 15 | 2 |
+| D4 | **ENiGMA½ locked launcher**: BBS reachable on the terminal line via an unprivileged launcher (no host shell escape), OS accounts ≠ BBS accounts. Include the launcher + a documented escape-attempt test. | 20 | 3 |
+| D5 | **Miner gateway (Phase 4a)**: a tested skeleton already exists in [`gateway/`](gateway/) (line protocol + key-free guards + mock-node self-test, 4/4 green). **This bounty = validate it against a LIVE node**: point `--node-url` at a real RustChain node, relay a real Ed25519-signed attestation, and prove the node **accepts** it with the correct antiquity multiplier. Per [MINER_GATEWAY.md](docs/MINER_GATEWAY.md). | 25 | 4a |
+| D6 | **Portable C evidence+sign client** for ONE vintage OS (486 Linux/NetBSD first): gathers HW signals, Ed25519-signs locally, talks the gateway line protocol. Node must accept a real attestation at the correct antiquity multiplier. | 35 / OS | 4b |
+| D7 | **Big-endian signature round-trip**: prove the evidence wire-format + Ed25519 signature verifies from a big-endian target (G3/G4 or 68k). | 20 | 4c |
+| D8 | **AutoPPP single-line mux (Phase 5)**: one number serves both BBS and PPP reliably, *after* both work on separate lines. Include the `login.config` `/AutoPPP/` rule + detection-window tuning + failure-mode notes. | 15 | 5 |
+| D9 | **BBS⇄RustChain door**: in-BBS wallet balance + attestation status + a "mine while you read" panel, talking only to the narrow gateway API. | 20 | 5 |
+| D10 | **VoIP↔analog modem relay**: a real 9600/V.34 data call survives Asterisk + HT802 with G.711 PCMU only, no transcoding, VAD off. Document the dial plan + codec config + the achieved rate. | 25 | 6 |
+| D11 | **Multi-line ops**: stable `udev` names, one `mgetty` per port, health watchdog + modem-reset recovery, monitoring. | 15 | 7 |
 
 ## B. Future-participation bounties (keep the island alive)
 
 | # | Bounty | RTC |
 |---|--------|-----|
-| P1 | **First dial-in of an architecture**: first verified attestation over dial-up from each new family — first 68k Mac, first SPARC, first MIPS, first PA-RISC, first Amiga, first DOS/386, etc. (one bounty per architecture, first claimant). | 20 / first |
-| P2 | **Run a callable node**: stand up your own RustChain Dial-Up NAS that others can dial (real number or documented line), reachable for a verified month. | 30 |
-| P3 | **Client recipe**: a documented, reproducible dial-up + mining setup for a specific vintage client (Dreamcast/DreamPi-style, Trumpet Winsock on Win3.x, KA9Q on DOS, MacTCP/OT/PPP on classic Mac…). | 10 / recipe |
-| P4 | **Port the C client** to a new architecture/OS beyond the first (extends D6). | 50 / port |
+| P1 | **First dial-in of an architecture**: first verified attestation over dial-up from each new family — first 68k Mac, first SPARC, first MIPS, first PA-RISC, first Amiga, first DOS/386, etc. (one bounty per architecture, first claimant). | 15 / first |
+| P2 | **Run a callable node**: stand up your own RustChain Dial-Up NAS that others can dial (real number or documented line), reachable for a verified month. | 20 |
+| P3 | **Client recipe**: a documented, reproducible dial-up + mining setup for a specific vintage client (Dreamcast/DreamPi-style, Trumpet Winsock on Win3.x, KA9Q on DOS, MacTCP/OT/PPP on classic Mac…). | 7 / recipe |
+| P4 | **Port the C client** to a new architecture/OS beyond the first (extends D6). | 35 / port |
 | P5 | **Hardware donation/loan documented**: contribute a working vintage modem or a genuinely antique machine to a public dial-in node, documented. | by arrangement |
 
 ---
@@ -68,7 +68,7 @@ A bounty is **paid** when:
 
 ## Terms
 
-- RTC is an internal reward token (`$0.10` reference, **no fiat off-ramp**). Amounts are today's
+- RTC is an internal reward token (`$0.15` reference as of 2026-06-02, **no fiat off-ramp**). Amounts are today's
   ceiling and scale down nominally as the holder rate rises.
 - One bounty per PR; first complete, reproducible submission per bounty wins.
 - Maintainers may split, adjust, or add bounties; disputes are resolved in the claim thread, same day
