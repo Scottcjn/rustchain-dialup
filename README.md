@@ -132,6 +132,12 @@ not optional.
 
 ---
 
+## 💰 Bounties — open to humans *and* agents
+
+Want to help build it (or just dial in and mine from something gloriously old)? There are
+**RTC bounties** for every roadmap phase plus "first dial-in of an architecture" rewards.
+See **[BOUNTIES.md](BOUNTIES.md)** and the pinned bounty-board issue.
+
 ## Part of the [RustChain](https://github.com/Scottcjn/Rustchain) ecosystem
 
 RustChain rewards vintage and exotic hardware for honest hardware-fingerprinted attestation
