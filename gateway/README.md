@@ -58,8 +58,7 @@ Core is **stdlib only** (urllib for upstream). `PyNaCl` is optional and only use
 ## Status / TODO (toward closing D5 → D6)
 
 - [x] Line protocol + key-free binding guards + mock-node self-test
-- [ ] Validate against a live node (`--node-url` to a real RustChain node; confirm a
-      relayed attestation is accepted with the right antiquity multiplier)
+- [x] Validate against a live node (relayed attestation accepted by node `50.28.86.131`; see `proof_live_node.py`)
 - [ ] systemd unit + one instance per physical line (Phase 7 multi-line)
 - [ ] Raw-serial / BBS-door transport carrying the same protocol (no PPP required)
 - [ ] Reference C vintage client (bounty **D6**) that emits SUBMIT payloads
