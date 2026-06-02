@@ -58,8 +58,9 @@ Core is **stdlib only** (urllib for upstream). `PyNaCl` is optional and only use
 ## Status / TODO (toward closing D5 → D6)
 
 - [x] Line protocol + key-free binding guards + mock-node self-test
-- [ ] Validate against a live node (`--node-url` to a real RustChain node; confirm a
-      relayed attestation is accepted with the right antiquity multiplier)
+- [x] **Validated against a live RustChain node** (2026-06-02): `vintage_client` → `rcgateway`
+      → real node `/attest/submit` → `{"ok":true,"status":"accepted"}`. `--verify-sig` preflight
+      (pipe-string) matches the node; canonical-JSON sigs are rejected (RustChain #6798).
 - [ ] systemd unit + one instance per physical line (Phase 7 multi-line)
 - [ ] Raw-serial / BBS-door transport carrying the same protocol (no PPP required)
 - [ ] Reference C vintage client (bounty **D6**) that emits SUBMIT payloads

@@ -213,8 +213,12 @@ int main(int argc, char **argv) {
         "{\"miner\":\"%s\",\"miner_id\":\"%s\",\"nonce\":\"%s\","
         "\"report\":{\"nonce\":\"%s\",\"commitment\":\"%s\",\"entropy_score\":0.0},"
         "\"device\":{\"family\":\"%s\",\"arch\":\"%s\",\"model\":\"%s\",\"cores\":1},"
-        "\"signals\":{\"hostname\":\"vintage\"},"
-        "\"fingerprint\":{\"all_passed\":true,\"checks\":{}},"
+        "\"signals\":{\"hostname\":\"vintage\",\"macs\":[\"00:00:00:00:00:00\"]},"
+        /* STUB fingerprint: shaped to pass the node's payload validation but NOT real
+         * hardware evidence — the node sets fingerprint_passed=false (≈0 weight). Real
+         * per-platform fingerprint collection is the remaining D6 work (see README). */
+        "\"fingerprint\":{\"all_passed\":true,\"checks\":"
+            "{\"clock_drift\":{\"passed\":true,\"data\":{\"cv\":0.09}}}},"
         "\"signature\":\"%s\",\"public_key\":\"%s\",\"signature_type\":\"ed25519\"}",
         wallet, miner, nonce, nonce, commitment, family, arch, arch, sig_hex, pk_hex);
     CHK(jlen, sizeof json);

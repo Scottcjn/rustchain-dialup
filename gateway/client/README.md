@@ -69,6 +69,11 @@ canonical JSON instead, which the node rejects — this client signs what the no
       byte-identical to PyNaCl, accepted by `rcgateway --verify-sig`**
 - [x] Vendored SHA-256 — verified against Python `hashlib`
 - [ ] Monocypher backend — wired via `#ifdef`, **not yet compiled** (needs monocypher.c/.h + a target)
+- [x] **Validated against a live RustChain node** (2026-06-02) — C client → `rcgateway` →
+      real node `/attest/submit` returned `{"ok":true,"status":"accepted"}` with a ticket. The
+      pipe-string signature verified; a canonical-JSON signature was rejected `INVALID_SIGNATURE`
+      (see [RustChain #6798](https://github.com/Scottcjn/Rustchain/issues/6798)).
 - [ ] Real per-platform CSPRNG + key protection (see warning above)
-- [ ] Real hardware evidence collection (currently a minimal fixed-shape stub)
-- [ ] Validation against a live RustChain node (closes D5/D6 together)
+- [ ] Real hardware evidence collection (currently a minimal fixed-shape stub → `fingerprint_passed:false`,
+      ~0 reward weight). This is the remaining substantive D6 work.
+- [ ] Monocypher backend compiled on a real vintage target
