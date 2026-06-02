@@ -1,0 +1,5 @@
+# rcgateway core is stdlib-only. PyNaCl is OPTIONAL:
+#   - enables --verify-sig (local Ed25519 pre-flight before relay)
+#   - enables real signing in test_rcgateway.py (otherwise a stub signature is used)
+# The RustChain node remains authoritative for signature verification either way.
+PyNaCl>=1.5.0
