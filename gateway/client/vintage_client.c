@@ -27,11 +27,29 @@
 #include <unistd.h>
 #include <time.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 
 static void die(const char *m) { fprintf(stderr, "vintage_client: %s\n", m); exit(1); }
+
+/* abort if an snprintf truncated — never pass a truncated/oversized length onward */
+#define CHK(n, cap) do { if ((n) < 0 || (size_t)(n) >= (cap)) die("buffer truncation"); } while (0)
+
+/* Reject values that could break the line protocol, the pipe-string, or the JSON.
+ * Allowed: A-Z a-z 0-9 and . _ - : (covers miner_id, RTC… wallets, hex nonces). */
+static int valid_token(const char *s, size_t maxlen) {
+    if (!s || !*s) return 0;
+    size_t n = 0;
+    for (const char *p = s; *p; p++, n++) {
+        char c = *p;
+        int ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                 (c >= '0' && c <= '9') || c == '.' || c == '_' || c == '-' || c == ':';
+        if (!ok) return 0;
+    }
+    return n <= maxlen;
+}
 
 /* ---- tiny line I/O over a socket fd ----------------------------------- */
 static int sock_connect(const char *host, int port) {
@@ -53,10 +71,19 @@ static int sock_connect(const char *host, int port) {
     return fd;
 }
 
+/* write the whole buffer, looping over short writes (a valid socket behavior) */
+static void write_all(int fd, const char *buf, size_t n) {
+    size_t off = 0;
+    while (off < n) {
+        ssize_t w = write(fd, buf + off, n - off);
+        if (w <= 0) die("write failed");
+        off += (size_t)w;
+    }
+}
+
 static void send_line(int fd, const char *line) {
-    size_t n = strlen(line);
-    if (write(fd, line, n) != (ssize_t)n || write(fd, "\n", 1) != 1)
-        die("write failed");
+    write_all(fd, line, strlen(line));
+    write_all(fd, "\n", 1);
 }
 
 /* read one '\n'-terminated line into buf (NUL-terminated, newline stripped). */
@@ -98,7 +125,13 @@ static void load_or_make_seed(const char *seed_hex, uint8_t seed[32]) {
     if (u) { size_t n = fread(seed, 1, 32, u); fclose(u); if (n != 32) die("urandom short"); }
     else { srand((unsigned)time(NULL)); for (int i = 0; i < 32; i++) seed[i] = (uint8_t)rand(); }
     f = fopen(path, "wb");
-    if (f) { fwrite(seed, 1, 32, f); fclose(f); }
+    if (f) {
+        if (chmod(path, 0600) != 0) { /* best-effort: keep going, warn */
+            fprintf(stderr, "vintage_client: warning: could not chmod 0600 %s\n", path);
+        }
+        fwrite(seed, 1, 32, f);
+        fclose(f);
+    }
 }
 
 int main(int argc, char **argv) {
@@ -116,7 +149,10 @@ int main(int argc, char **argv) {
         else { fprintf(stderr, "unknown arg: %s\n", argv[i]); return 2; }
     }
     if (!miner || !wallet) die("need --miner and --wallet");
-    if (!wallet[0]) die("empty wallet");
+    if (!valid_token(miner, 128))  die("invalid --miner (allowed chars: A-Za-z0-9 . _ - :)");
+    if (!valid_token(wallet, 128)) die("invalid --wallet (allowed chars: A-Za-z0-9 . _ - :)");
+    if (!valid_token(arch, 64))    die("invalid --arch");
+    if (!valid_token(family, 64))  die("invalid --family");
 
     uint8_t seed[32], pk[32];
     load_or_make_seed(seed_hex, seed);
@@ -131,7 +167,7 @@ int main(int argc, char **argv) {
     if (recv_line(fd, line, sizeof line) < 0 || strncmp(line, "RCGW ", 5)) die("no banner");
 
     /* HELLO */
-    snprintf(line, sizeof line, "HELLO %s", miner);
+    CHK(snprintf(line, sizeof line, "HELLO %s", miner), sizeof line);
     send_line(fd, line);
     if (recv_line(fd, line, sizeof line) < 0 || strcmp(line, "READY")) {
         fprintf(stderr, "HELLO rejected: %s\n", line); return 1;
@@ -146,12 +182,14 @@ int main(int argc, char **argv) {
     size_t nlen = strlen(line + 6);
     if (nlen == 0 || nlen >= sizeof nonce) die("bad nonce length");
     memcpy(nonce, line + 6, nlen + 1);
+    /* the nonce is server-issued, but validate it before it enters JSON/the pipe-string */
+    if (!valid_token(nonce, sizeof nonce - 1)) die("server nonce has unexpected characters");
 
     /* commitment = sha256(nonce + wallet + entropy_json), entropy fixed-shape ASCII */
-    char entropy_json[128];
-    snprintf(entropy_json, sizeof entropy_json, "{\"variance_ns\":0.0}");
+    const char entropy_json[] = "{\"variance_ns\":0.0}";
     char preimage[1024];
     int plen = snprintf(preimage, sizeof preimage, "%s%s%s", nonce, wallet, entropy_json);
+    CHK(plen, sizeof preimage);
     uint8_t cdigest[RCC_SHA256_LEN];
     rcc_sha256((const uint8_t *)preimage, (size_t)plen, cdigest);
     char commitment[65];
@@ -161,15 +199,17 @@ int main(int argc, char **argv) {
     char signmsg[1024];
     int slen = snprintf(signmsg, sizeof signmsg, "%s|%s|%s|%s",
                         miner, wallet, nonce, commitment);
+    CHK(slen, sizeof signmsg);
     uint8_t sig[RCC_ED25519_SIG_LEN];
     if (rcc_ed25519_sign(seed, (const uint8_t *)signmsg, (size_t)slen, sig))
         die("sign failed");
     char sig_hex[129];
     rcc_hex(sig, RCC_ED25519_SIG_LEN, sig_hex);
 
-    /* hand-build the attestation JSON (values are safe ASCII; no escaping needed) */
+    /* hand-build the attestation JSON. All interpolated values were charset-validated
+     * above (valid_token), so none can contain a quote, backslash, or control char. */
     char json[4096];
-    snprintf(json, sizeof json,
+    int jlen = snprintf(json, sizeof json,
         "{\"miner\":\"%s\",\"miner_id\":\"%s\",\"nonce\":\"%s\","
         "\"report\":{\"nonce\":\"%s\",\"commitment\":\"%s\",\"entropy_score\":0.0},"
         "\"device\":{\"family\":\"%s\",\"arch\":\"%s\",\"model\":\"%s\",\"cores\":1},"
@@ -177,11 +217,14 @@ int main(int argc, char **argv) {
         "\"fingerprint\":{\"all_passed\":true,\"checks\":{}},"
         "\"signature\":\"%s\",\"public_key\":\"%s\",\"signature_type\":\"ed25519\"}",
         wallet, miner, nonce, nonce, commitment, family, arch, arch, sig_hex, pk_hex);
+    CHK(jlen, sizeof json);
 
     /* SUBMIT */
-    char *out = malloc(strlen(json) + 16);
+    size_t outcap = strlen(json) + 16;
+    char *out = malloc(outcap);
     if (!out) die("oom");
-    sprintf(out, "SUBMIT %s", json);
+    int olen = snprintf(out, outcap, "SUBMIT %s", json);
+    CHK(olen, outcap);
     send_line(fd, out);
     free(out);
 

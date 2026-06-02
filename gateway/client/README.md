@@ -54,8 +54,9 @@ backend was verified identical to PyNaCl this way; a Monocypher port must reprod
 ## What the node verifies (ground truth)
 
 ```
-sign_message = "miner_id|miner|nonce|commitment"          # UTF-8, NOT canonical JSON
-commitment   = sha256(nonce + miner + '{"variance_ns":0.0}')  # entropy JSON is fixed-shape ASCII
+sign_message = "miner_id|miner|nonce|commitment"            # UTF-8, NOT canonical JSON
+commitment   = sha256(nonce + wallet + '{"variance_ns":0.0}')   # entropy JSON is fixed-shape ASCII
+# note: the node's `miner` field IS the wallet address; `miner_id` is the device id
 ```
 
 Confirmed against `Scottcjn/Rustchain@origin/main` `node/.../attest/submit`. See

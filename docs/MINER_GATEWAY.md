@@ -59,7 +59,9 @@ canonical JSON:
 sign_message = f"{miner_id}|{miner}|{nonce}|{commitment}"   # UTF-8
 ```
 
-This is a gift to the vintage side: no JSON canonicalization on a 386 — just `sprintf` + sign.
+where the node's `miner` field **is the wallet address** (`miner_id` is the device id), and
+`commitment = sha256(nonce + wallet + '{"variance_ns":0.0}')`. This is a gift to the vintage
+side: no JSON canonicalization on a 386 — just `sprintf` + sign.
 
 > ⚠️ **Upstream mismatch flagged 2026-06-02:** the shipped `rustchain_linux_miner.py` and
 > `rustchain_windows_miner.py` sign the *canonical JSON* of the full attestation, but the node
@@ -70,7 +72,7 @@ This is a gift to the vintage side: no JSON canonicalization on a 386 — just `
 ## Endianness
 
 Ed25519 is byte-string defined (endian-neutral). The pipe-string is plain ASCII/UTF-8, so it's
-endian-clean by construction — but `commitment` is `sha256(nonce + miner + canonical(entropy))`, so
+endian-clean by construction — but `commitment` is `sha256(nonce + wallet + entropy_json)`, so
 the SHA-256 input bytes must be assembled identically on a big-endian SH-4 / PPC / 68k. Pin the
 entropy serialization to fixed text and round-trip a signature from one big-endian target before
 declaring Phase 4 done (bounty D7).

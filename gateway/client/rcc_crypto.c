@@ -87,8 +87,9 @@ void rcc_hex(const uint8_t *in, size_t len, char *out) {
 
 int rcc_ed25519_pubkey(const uint8_t seed[RCC_ED25519_SK_LEN],
                        uint8_t pk[RCC_ED25519_PK_LEN]) {
-    uint8_t sk[64];
-    crypto_eddsa_key_pair(sk, pk, (uint8_t *)seed);  /* note: clobbers seed copy */
+    uint8_t sk[64], seedcopy[32];
+    memcpy(seedcopy, seed, 32);            /* crypto_eddsa_key_pair WIPES its seed arg */
+    crypto_eddsa_key_pair(sk, pk, seedcopy);
     crypto_wipe(sk, sizeof sk);
     return 0;
 }

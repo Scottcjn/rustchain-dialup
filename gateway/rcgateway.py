@@ -157,7 +157,9 @@ def attest_sign_message(attestation: dict) -> bytes:
     """
     miner = attestation.get("miner") or attestation.get("miner_id") or ""
     miner_id_raw = attestation.get("miner_id") or miner
-    report = attestation.get("report") or {}
+    report = attestation.get("report")
+    if not isinstance(report, dict):
+        report = {}
     nonce = report.get("nonce") or attestation.get("nonce") or ""
     commitment = report.get("commitment") or ""
     return f"{miner_id_raw}|{miner}|{nonce}|{commitment}".encode("utf-8")
@@ -279,14 +281,30 @@ class GatewayHandler(socketserver.StreamRequestHandler):
         if attestation.get("miner_id") != sess.miner_id:
             self._send("ERR miner_id mismatch vs HELLO")
             return
-        if attestation.get("nonce") != sess.issued_nonce:
+        # Resolve the nonce the SAME way attest_sign_message (and the node) do —
+        # report.nonce takes precedence — so the bound nonce == the signed nonce.
+        report = attestation.get("report")
+        report = report if isinstance(report, dict) else {}
+        top_nonce = attestation.get("nonce")
+        rep_nonce = report.get("nonce")
+        if top_nonce is not None and rep_nonce is not None and top_nonce != rep_nonce:
+            self._send("ERR nonce mismatch between report and top-level")
+            return
+        effective_nonce = rep_nonce or top_nonce
+        if effective_nonce != sess.issued_nonce:
             self._send("ERR nonce mismatch vs issued CHALLENGE")
             return
         if attestation.get("signature_type") != "ed25519" or not attestation.get("signature"):
             self._send("ERR attestation must be ed25519-signed")
             return
         if self.cfg.verify_sig:
-            ok, reason = preflight_verify(attestation)
+            # preflight must never crash the connection thread on malformed input
+            try:
+                ok, reason = preflight_verify(attestation)
+            except Exception as e:  # noqa: BLE001 - malformed payload -> ERR, not a dead thread
+                LOG.warning("preflight raised for %s: %s", sess.miner_id, e)
+                self._send("ERR preflight malformed attestation")
+                return
             if not ok:
                 LOG.warning("preflight verify failed for %s: %s", sess.miner_id, reason)
                 self._send(f"ERR preflight {reason}")

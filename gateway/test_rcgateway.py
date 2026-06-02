@@ -160,6 +160,46 @@ def test_submit_before_challenge_rejected():
         c.close()
 
 
+def test_non_dict_report_does_not_crash():
+    """A truthy non-dict `report` must yield a clean ERR, not a dead thread."""
+    miner = "weird"
+    with _Harness(allow_miners=frozenset({miner})) as h:
+        c = h.client()
+        c.recv()
+        assert c.send(f"HELLO {miner}") == "READY"
+        nonce = c.send("CHALLENGE").split(" ", 1)[1]
+        att = build_signed_attestation(miner, nonce)
+        att["report"] = "not-a-dict"  # malformed
+        resp = c.send("SUBMIT " + json.dumps(att, separators=(",", ":")))
+        assert resp.startswith("ERR"), resp
+        # connection still alive: a follow-up line still gets a response
+        assert c.send("CHALLENGE").startswith(("NONCE", "ERR")), "thread died"
+        c.close()
+
+
+def test_canonical_json_signature_is_rejected():
+    """A signature over canonical JSON (the shipped-miner bug) must fail preflight."""
+    if not _NACL:
+        return  # can't forge a real sig without PyNaCl; skip
+    miner = "jsonsigner"
+    with _Harness(allow_miners=frozenset({miner})) as h:
+        c = h.client()
+        c.recv()
+        c.send(f"HELLO {miner}")
+        nonce = c.send("CHALLENGE").split(" ", 1)[1]
+        att = build_signed_attestation(miner, nonce)
+        # re-sign over canonical JSON instead of the pipe-string
+        sk = SigningKey.generate()
+        stripped = {k: v for k, v in att.items()
+                    if k not in ("signature", "public_key", "signature_type")}
+        payload = json.dumps(stripped, sort_keys=True, separators=(",", ":")).encode()
+        att["signature"] = sk.sign(payload).signature.hex()
+        att["public_key"] = sk.verify_key.encode().hex()
+        resp = c.send("SUBMIT " + json.dumps(att, separators=(",", ":")))
+        assert resp.startswith("ERR preflight"), resp
+        c.close()
+
+
 def _run_standalone() -> int:
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]

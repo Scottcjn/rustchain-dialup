@@ -61,9 +61,10 @@ sign_message = f"{miner_id}|{miner}|{nonce}|{commitment}"     # UTF-8 bytes
 signature    = ed25519_sign(sign_message, private_key)
 ```
 
-where `commitment` is what the client puts in `report.commitment` — by convention
-`sha256(nonce + miner + canonical_json(entropy))`, but the node only re-derives the
-*string above* for verification; it reads `commitment` from the report as-is.
+where `miner` is the **wallet address** (the node's `miner` field == wallet; `miner_id` is the
+device id) and `commitment` is what the client puts in `report.commitment` — by convention
+`sha256(nonce + wallet + '{"variance_ns":0.0}')`. The node only re-derives the *pipe-string above*
+for verification; it reads `commitment` from the report as-is.
 
 This is **far simpler for a vintage client than canonical JSON** — no key-sorting,
 no separator rules, just `sprintf`. That's why the C client (bounty D6) targets it.
