@@ -45,11 +45,49 @@ authenticates the caller, and bridges them onto a network. We rebuild that with 
 - Node.js + scriptable ⇒ RustChain panels (wallet balance, attestation status, "mine while you read").
 - Runs as the shell/program for the dial-in login user.
 
-## The two-mode decision (why AutoPPP matters)
+## The two-mode decision (why AutoPPP is a *later* phase)
 
 A Dreamcast dials its ISP and immediately speaks **PPP** — it wants internet, not a text BBS.
 A retro terminal program (Telix, ProComm) dials and speaks **plain ASCII** — it wants the BBS.
-AutoPPP lets *one phone number / one modem* serve both: the byte pattern after CONNECT decides.
+In principle AutoPPP lets *one phone number / one modem* serve both: the byte pattern after CONNECT
+decides.
+
+**But AutoPPP is brittle, so we don't lead with it** (tri-brain review, both reviewers):
+- AutoPPP is a *short post-CONNECT sniff* for raw LCP (`0x7e ... ff 03 c0 21`). **Any** ASCII banner,
+  login prompt, or "connecting…" text emitted before PPP defeats it and the caller falls to terminal.
+- Many 486/Win3.x setups **dial as terminal first**, then launch PPP manually (Trumpet Winsock dial
+  scripts) — that is *not* AutoPPP-friendly without a documented client dial script.
+- So: **Phase 1–4 use separate lines/numbers** (one for terminal/BBS, one for PPP). AutoPPP
+  multiplexing onto a single line is **Phase 5**, attempted only after both modes work independently.
+- Config when we do it: `/AutoPPP/ - a_ppp /usr/sbin/pppd ...` in `/etc/mgetty/login.config`, with a
+  tight detect window and **no** leading server-side plaintext on the PPP line.
+
+## Modem init — `AT&F` is not enough
+
+Per-modem bench tuning is required before a line is trustworthy (don't assume the NW147 "just works"
+in answer mode — `/dev/ttyACM0` appearing ≠ reliable data carrier):
+
+- `ATS0=1` (auto-answer on 1 ring), `AT+FCLASS=0` (data mode, not fax)
+- Hardware flow control (`AT&K3` / RTS-CTS), DTR hangup behavior (`AT&D2`), carrier detect (`AT&C1`)
+- Result codes / echo (`ATE0 V1 Q0`), dial-tone vs blind dial
+- **Rate lock** for slow links: `AT+MS=...` to pin V.34/9600 instead of letting it negotiate up on a
+  simulator that can't sustain it
+- Save a known-good profile (`AT&W`) and restore it (`ATZ`/`AT&F` then re-apply) on each call
+
+Watchdog: a periodic `ATI`/`AT` health probe + modem reset recovery (USB re-enumeration handling).
+
+## Slow-link reality: MTU/MRU and serialization latency
+
+**This is the #1 silent failure.** Default PPP MTU/MRU is 1500. At 9600 baud (~960 B/s) a single
+1500-byte frame takes ~1.5s to serialize — interactive use dies and PMTU black holes hang HTTP.
+
+- Set `mtu 576` and `mru 576` in `pppd` options (test down to **296** for the worst links).
+- **TCP MSS clamp** on the NAS: `nft ... tcp flags syn tcp option maxseg size set rt mtu` (or the
+  iptables `TCPMSS --clamp-mss-to-pmtu` equivalent) so remote servers don't push 1460-byte segments.
+- Consider Van Jacobson header compression (`vj`) — but verify the vintage client supports it; disable
+  if it causes negotiation failures.
+- The **split miner gateway** (see MINER_GATEWAY.md) keeps the vintage↔gateway payload to a few
+  hundred bytes, so mining stays fast even when general browsing is painful.
 
 ## RustChain over dial-up
 
@@ -83,9 +121,23 @@ Modem-relay constraints (must be respected or modems won't connect):
   For the lab, prefer real copper (line simulator) for the fast/reliable links and treat VoIP
   dial-in as a slower convenience path.
 
-## Security & isolation notes
+## Security & isolation (NAT alone is NOT safe)
 
-- Telephony/PPP box should be network-isolated from production where practical.
-- PPP auth (PAP/CHAP) gates who gets an IP; the BBS has its own user accounts.
-- NAT egress should be firewalled — dial-in guests shouldn't roam the lab LAN freely.
-- RustChain admin keys are never exposed to dial-in clients; they only reach the public node API.
+Both reviewers flagged "NAT to the internet" as under-specified and dangerous. A dial-in guest is an
+**untrusted device on someone's old hardware** — treat it like a guest VLAN, not a lab citizen.
+
+- **Dedicated subnet for `ppp0`** (e.g. `10.55.0.0/24`), reached via its own firewall zone / VLAN /
+  netns — never bridged onto `192.168.0.0/24`.
+- **Default-deny** from the PPP subnet to all RFC1918 lab ranges. Explicitly *allow* only:
+  - WAN egress (NAT/MASQUERADE) — optionally through a **curated web proxy** rather than raw,
+  - a **local DNS resolver**,
+  - the **one** RustChain gateway IP:port,
+  - the BBS endpoint.
+- **No lateral movement**: block PPP↔PPP and PPP→lab. Per-session isolation; log every session.
+- **PAP/CHAP** gates who gets an IP; **BBS accounts are separate** from OS accounts and from PPP creds.
+- **ENiGMA½ never runs as a login shell** — a dedicated unprivileged launcher (or a serial→BBS bridge)
+  so a dropped/escaped session can't reach a host shell.
+- **RustChain admin keys never touch dial-in.** The gateway holds no signing key (see MINER_GATEWAY.md);
+  it relays signed blobs to the **public** node API only. Rate-limit the gateway and bind it to the
+  physically-attached line so it can't be used to mint a farm of fake miners.
+- IPv6: either disable on `ppp0` or apply the same default-deny — don't let it silently bypass the v4 rules.

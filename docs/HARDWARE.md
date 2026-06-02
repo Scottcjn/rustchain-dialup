@@ -24,8 +24,12 @@ The modem that **answers** the call and talks to `mgetty`/`pppd`.
 | Zoom 3095 (Conexant CX930xx) | `/dev/ttyACM0` | Conexant chipset, GPL source exists. |
 | USR Sportster / Courier (external serial) | `/dev/ttyUSB0` via USB-serial | Best for *authentic* AT-command tuning; physical DIP switches. |
 
-**Recommendation:** buy **1–2× Dell NW147 / Conexant RD02-D400** to start (~$10–15 ea).
-Second one lets you test modem↔modem on one bench before clients arrive.
+**Recommendation:** buy **2× Dell NW147 / Conexant RD02-D400** with **explicit roles**:
+one is the **NAS answer modem**, the other is a **bench dial-in client** so you can prove the whole
+chain modem↔modem *before* a Dreamcast or 486 is ever involved. Treat USB Conexant units as
+*candidates, not assumed-good* — `/dev/ttyACM0` appearing does **not** prove reliable answer-mode
+data carrier; bench-validate the specific board revision. If a Conexant ACM modem fights `mgetty`,
+fall back to a **USR Courier/Sportster on USB-serial** for hard RTS/CTS and DIP-switch line control.
 
 > `ttyACM` = USB CDC-ACM class modem (most cheap USB modems). `ttyUSB` = a USB-serial
 > bridge to a classic external modem. Both speak the Hayes/V.250 AT command set.
@@ -40,7 +44,7 @@ ring voltage, and ~48V DC talk battery**. Pick one:
 | Option | What it does | Approx. cost | When to use |
 |--------|--------------|--------------|-------------|
 | **Viking DLE-200B** ⭐ | Full two-way line simulator: real dial tone, talk battery, ring. One modem dials, the other rings + answers. | ~$150–200 new | Most realistic; cleanest training; supports dialing between the two ports. |
-| **DreamPi line inducer** | Battery + inductor injects DC talk current so the answering modem holds the line; pair with an ATA for dial tone. | ~$20 (DIY/kit) | Cheapest; the proven DreamPi trick. |
+| **DreamPi line inducer** | Injects DC talk current so the answering modem holds the line. **Does NOT by itself provide dial tone, ringing, or call routing** — it must be paired with an ATA/FXS for the dialing modem. Not a $20-and-done substitute for the DLE-200B. | ~$20 + an ATA | Cheapest; the proven DreamPi trick, but only for the *answer-and-hold* case. |
 | **2× Grandstream HT802 + Asterisk** | Each modem plugs into an FXS port; Asterisk bridges the call over SIP. | ~$60 (2 ATAs) | Doubles as the VoIP↔analog bridge for later phases. |
 
 **Recommendation for fastest working demo:** **Viking DLE-200B**. It behaves the most like a

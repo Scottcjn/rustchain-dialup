@@ -1,5 +1,7 @@
 # RustChain Dial-Up
 
+> *Everyone else is looking at the future. We're looking at the past to develop the future.*
+
 **A dial-up ISP, a BBS, and a VoIP↔analog bridge for vintage hardware — that mines RustChain over a phone line.**
 
 Dial in with a SEGA Dreamcast, a 486 with no NIC, or a 9600-baud external modem.
@@ -8,6 +10,8 @@ and have the ancient machine *attest and earn RTC* while it's connected — vint
 silicon earns the highest RIP-200 antiquity multipliers, so slow + old is the whole point.
 
 > Status: **early build** — LAN-island phase. See [Roadmap](#roadmap).
+> Design has been through an adversarial tri-brain review (Codex 5.5 + Grok); their honest
+> assessment and the resulting course-corrections are in **[docs/reviews/](docs/reviews/ASSESSMENT-2026-06-02.md)**.
 
 ---
 
@@ -30,12 +34,22 @@ a ~$15 USB modem:
                                                           └──────────────────────────┘
 ```
 
-### Every call resolves into one of two modes (automatically)
+### Two modes — on separate lines first, auto-detected later
 
 | Mode | How | What you get |
 |------|-----|--------------|
-| **PPP / Internet** | `mgetty` AutoPPP detects PPP frames → hands to `pppd` | A real IP. Dreamcast browses the web; the 386 reaches a RustChain node and **mines**. |
-| **BBS / Terminal** | No PPP frames → drop to a login shell running **ENiGMA½** | The full **RustChain BBS**: message bases, door games, wallet/mining panels. |
+| **PPP / Internet** | `pppd` over the modem (its own line/number to start) | A real IP. Dreamcast gets connectivity; the vintage box reaches the **local miner gateway** and **mines**. |
+| **BBS / Terminal** | A login that launches **ENiGMA½** in a locked-down launcher (not a real shell) | The full **RustChain BBS**: message bases, door games, wallet/mining panels. |
+
+> **Honest sequencing (per review):** we bring up terminal and PPP on *separate* lines first,
+> because one-line auto-detection (`mgetty` AutoPPP sniffing for LCP frames) is brittle — any
+> ASCII banner before PPP, or a client that dials terminal-first, breaks it. Single-number
+> dual-mode is a **Phase 5** optimization, not a day-one promise.
+
+> **Mining is split, not done on the old box.** A 386 can't realistically do TLS + Ed25519 +
+> canonical JSON. So a tiny portable client on the vintage machine gathers hardware evidence and
+> **signs locally**; a **gateway on the Pi** handles TLS/JSON/HTTP to the node. The proof-of-antiquity
+> stays on real old silicon. See **[docs/MINER_GATEWAY.md](docs/MINER_GATEWAY.md)**.
 
 ---
 
@@ -72,24 +86,40 @@ Future VoIP/PSTN reach: **Grandstream HT802** ATA (2× FXS + SIP, ~$30 used) + A
 Deep dive: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
 Key honest caveats baked into the design:
-- **Modems need a line to train** — dial tone, ring, ~48V talk battery. No telco ⇒ we supply it
-  (line simulator / line inducer). This is phase-one hardware, not an afterthought.
+- **Modems need a line to train** — dial tone, ring, ~48V talk battery. No telco ⇒ we supply it.
+  The **Viking DLE-200B** does this fully; a bare line *inducer* only injects talk current and still
+  needs an ATA for dial tone/ring. This is phase-one hardware, not an afterthought.
+- **MTU/MRU must be clamped.** Default 1500 over 9600 baud = "connected, nothing loads." Set
+  `mru/mtu ≈ 576` (test down to 296) + TCP MSS clamp. Detailed in [ARCHITECTURE](docs/ARCHITECTURE.md).
+- **Dial-in is firewall-isolated.** PPP guests land on their own subnet with default-deny to the lab
+  LAN — they reach only WAN egress + the RustChain gateway, never `192.168.0.x` at large.
 - **56k over VoIP does not work.** V.90/V.92 needs a digital PSTN endpoint. Over clean G.711 µ-law
   passthrough you can sometimes hold V.34 (~33.6k) or train down to 9600/14400. The VoIP bridge is a
-  *modem-relay* problem, not "just bridge the audio."
+  *modem-relay* problem (V.150.1 territory), not "just bridge the audio."
 
 ---
 
 ## Roadmap
 
-- [ ] **Phase 0 — Source hardware.** USB modem(s), line simulator/inducer, Pi. (this repo's BOM)
-- [ ] **Phase 1 — LAN island answer.** `mgetty` answers, raw terminal login works modem↔modem.
-- [ ] **Phase 2 — PPP server.** `pppd` + AutoPPP; client gets an IP; NAT to real internet.
-- [ ] **Phase 3 — ENiGMA½ BBS.** Message bases + ANSI; wired as the terminal-mode landing.
-- [ ] **Phase 4 — RustChain over dial-up.** Miner attests across the PPP link; verify payload timing at 9600.
-- [ ] **Phase 5 — BBS ⇄ RustChain integration.** Wallet balance, attestation status, "mine while you read" door.
-- [ ] **Phase 6 — VoIP↔analog.** Asterisk + HT802; modem-relay tuning; real dial-in over SIP trunk.
-- [ ] **Phase 7 — Multi-line.** Modem bank / multiple FXS so several vintage callers connect at once.
+Rewritten after the [tri-brain review](docs/reviews/ASSESSMENT-2026-06-02.md): terminal and PPP
+come up on *separate* lines first; mining is the split-gateway design; isolation and MTU are
+not optional.
+
+- [ ] **Phase 0 — Source hardware.** 2× USB modems (one = bench client), DLE-200B, Pi. ([BOM](docs/HARDWARE.md))
+- [ ] **Phase 1 — Bench answer.** Mask ModemManager, no serial-getty on the ACM port, `mgetty`
+      answers, raw terminal login works **modem↔modem on one bench** (no vintage client yet).
+- [ ] **Phase 2 — PPP server (own line).** `pppd` with **fixed local/remote addresses**, `mru/mtu 576`,
+      TCP MSS clamp, nftables MASQUERADE — on an **isolated subnet**, default-deny to the lab LAN.
+- [ ] **Phase 3 — ENiGMA½ BBS.** Locked-down launcher (no host shell), OS accounts ≠ BBS accounts.
+- [ ] **Phase 4 — RustChain over dial-up (the split miner).**
+      4a: gateway on the Pi proven with a modern client → node accepts.
+      4b: tiny portable **C evidence+sign client** on one vintage OS (486 Linux/NetBSD first).
+      4c: big-endian signature round-trip (G3/G4 or 68k). See [MINER_GATEWAY](docs/MINER_GATEWAY.md).
+- [ ] **Phase 5 — One-line dual-mode + BBS⇄RustChain.** AutoPPP multiplexing once both modes work
+      alone; wallet balance, attestation status, "mine while you read" door.
+- [ ] **Phase 6 — VoIP↔analog.** Asterisk + HT802; G.711 PCMU only, no transcoding, VAD off; treat
+      as a **degraded 9600-only** path. Real dial-in over a SIP trunk.
+- [ ] **Phase 7 — Multi-line.** Stable `udev` names, one `mgetty` per port, monitoring, reset recovery.
 
 ---
 
