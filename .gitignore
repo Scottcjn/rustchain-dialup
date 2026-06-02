@@ -1,0 +1,28 @@
+# Secrets — never commit
+*.secret
+*secrets*
+pap-secrets
+chap-secrets
+.env
+*.pem
+*.key
+
+# Local config snapshots that may contain device-specific / sensitive data
+config/local/
+
+# Logs
+*.log
+logs/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node (ENiGMA½ mods)
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
