@@ -1,0 +1,3 @@
+# build artifacts
+vintage_client
+*.o

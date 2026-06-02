@@ -50,12 +50,30 @@ the signature are produced on the real old hardware**. The gateway is a *transpo
 - The vintage client needs **no TLS, no DNS, no system clock discipline** — the gateway supplies
   all of that. The old box only needs: read /proc-equivalent hardware signals, hash, Ed25519-sign.
 
+## What gets signed (verified against `origin/main`)
+
+The node's `/attest/submit` verifies the Ed25519 signature over a **pipe-delimited string**, not
+canonical JSON:
+
+```
+sign_message = f"{miner_id}|{miner}|{nonce}|{commitment}"   # UTF-8
+```
+
+This is a gift to the vintage side: no JSON canonicalization on a 386 — just `sprintf` + sign.
+
+> ⚠️ **Upstream mismatch flagged 2026-06-02:** the shipped `rustchain_linux_miner.py` and
+> `rustchain_windows_miner.py` sign the *canonical JSON* of the full attestation, but the node
+> verifies the pipe-string above — so their signed attestations fail and silently fall back to
+> unsigned (negating the MITM protection PR #6426 intended). The dial-up C client signs what the
+> **node actually verifies**. This is a RustChain-core issue worth its own fix; tracked separately.
+
 ## Endianness
 
-Ed25519 itself is byte-string defined (endian-neutral), but the **canonical serialization of the
-evidence must pin byte order explicitly** so an SH-4 (Dreamcast), big-endian PPC, or 68k produces
-the same bytes the node expects to verify. Define the wire format in fixed network byte order and
-test the signature round-trips from at least one big-endian target before declaring Phase 4 done.
+Ed25519 is byte-string defined (endian-neutral). The pipe-string is plain ASCII/UTF-8, so it's
+endian-clean by construction — but `commitment` is `sha256(nonce + miner + canonical(entropy))`, so
+the SHA-256 input bytes must be assembled identically on a big-endian SH-4 / PPC / 68k. Pin the
+entropy serialization to fixed text and round-trip a signature from one big-endian target before
+declaring Phase 4 done (bounty D7).
 
 ## Phasing (supersedes the old "Phase 4" hand-wave)
 

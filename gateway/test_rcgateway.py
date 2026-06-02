@@ -46,8 +46,11 @@ def build_signed_attestation(miner_id: str, nonce: str) -> dict:
     }
     if _NACL:
         sk = SigningKey.generate()
-        payload = json.dumps(att, sort_keys=True, separators=(",", ":")).encode()
-        att["signature"] = sk.sign(payload).signature.hex()
+        # Sign the EXACT message the node verifies: miner_id|miner|nonce|commitment
+        msg = "{}|{}|{}|{}".format(
+            att["miner_id"], att["miner"], att["nonce"], att["report"]["commitment"]
+        ).encode()
+        att["signature"] = sk.sign(msg).signature.hex()
         att["public_key"] = sk.verify_key.encode().hex()
     else:
         att["signature"] = "00" * 64

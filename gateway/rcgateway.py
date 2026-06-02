@@ -146,8 +146,25 @@ def submit_attestation(cfg: GatewayConfig, attestation: dict) -> dict:
 # --------------------------------------------------------------------------- #
 # Local pre-flight verification (advisory; node is authoritative)
 # --------------------------------------------------------------------------- #
+def attest_sign_message(attestation: dict) -> bytes:
+    """Reconstruct the EXACT bytes the RustChain node verifies a sig against.
+
+    Ground truth: node `/attest/submit` (origin/main) builds
+        sign_message = '{}|{}|{}|{}'.format(miner_id_raw, miner, nonce, commitment)
+    i.e. a pipe-delimited string, NOT canonical JSON. (The repo miners currently
+    sign canonical JSON instead — a known upstream mismatch; see protocol.md.)
+    We mirror the NODE because the node is authoritative for acceptance.
+    """
+    miner = attestation.get("miner") or attestation.get("miner_id") or ""
+    miner_id_raw = attestation.get("miner_id") or miner
+    report = attestation.get("report") or {}
+    nonce = report.get("nonce") or attestation.get("nonce") or ""
+    commitment = report.get("commitment") or ""
+    return f"{miner_id_raw}|{miner}|{nonce}|{commitment}".encode("utf-8")
+
+
 def preflight_verify(attestation: dict) -> tuple[bool, str]:
-    """Mirror the node's verification: strip sig fields, re-canonicalize, verify.
+    """Verify the Ed25519 sig over the node's pipe-string message before relaying.
 
     Returns (ok, reason). When PyNaCl is absent this is a no-op PASS — the node
     still verifies for real.
@@ -158,11 +175,8 @@ def preflight_verify(attestation: dict) -> tuple[bool, str]:
     pub = attestation.get("public_key")
     if not sig or not pub:
         return False, "missing signature/public_key"
-    stripped = {k: v for k, v in attestation.items()
-                if k not in ("signature", "public_key", "signature_type")}
-    payload = json.dumps(stripped, sort_keys=True, separators=(",", ":")).encode("utf-8")
     try:
-        VerifyKey(bytes.fromhex(pub)).verify(payload, bytes.fromhex(sig))
+        VerifyKey(bytes.fromhex(pub)).verify(attest_sign_message(attestation), bytes.fromhex(sig))
         return True, "ok"
     except Exception as e:  # noqa: BLE001 - any failure means reject
         return False, f"bad signature: {e}"

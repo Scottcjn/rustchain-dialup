@@ -47,15 +47,34 @@ single line, no embedded newlines (canonical JSON has none). It MUST contain at 
 | `miner_id` | must equal the `HELLO` miner_id (gateway rejects mismatch) |
 | `nonce` | must equal the `NONCE` just issued (gateway enforces challenge binding) |
 | `report`, `device`, `signals`, `fingerprint` | the evidence (built on the vintage box) |
-| `signature` | hex Ed25519 over the canonical JSON of the object **without** the signature fields |
+| `signature` | hex Ed25519 over the **pipe-string** `miner_id\|miner\|nonce\|commitment` (see below) |
 | `public_key` | hex Ed25519 public key |
 | `signature_type` | must be `"ed25519"` |
 
-This mirrors `miners/linux/rustchain_linux_miner.py` exactly: sign
-`json.dumps(obj, sort_keys=True, separators=(",",":"))` over the object *before*
-adding `signature`/`public_key`/`signature_type`. The node strips those three keys
-and re-canonicalizes to verify, so the gateway forwarding a parsed-and-reserialized
-object is signature-safe.
+### What to sign (ground truth, verified against `origin/main`)
+
+The RustChain node's `/attest/submit` verifies the signature over a **pipe-delimited
+string**, NOT canonical JSON:
+
+```
+sign_message = f"{miner_id}|{miner}|{nonce}|{commitment}"     # UTF-8 bytes
+signature    = ed25519_sign(sign_message, private_key)
+```
+
+where `commitment` is what the client puts in `report.commitment` — by convention
+`sha256(nonce + miner + canonical_json(entropy))`, but the node only re-derives the
+*string above* for verification; it reads `commitment` from the report as-is.
+
+This is **far simpler for a vintage client than canonical JSON** — no key-sorting,
+no separator rules, just `sprintf`. That's why the C client (bounty D6) targets it.
+
+> ⚠️ **Known upstream mismatch (flagged, not ours to fix here):** the shipped
+> `rustchain_linux_miner.py` / `rustchain_windows_miner.py` currently sign the
+> *canonical JSON* of the full attestation instead of this pipe-string, so their
+> signed attestations fail node verification and fall back to unsigned. The C client
+> here deliberately signs what the **node actually verifies**, so it is accepted.
+> Forwarding a parsed-and-reserialized object is still signature-safe because the
+> signature covers the pipe-string, not the JSON byte layout.
 
 ## What the gateway enforces (no key required)
 
