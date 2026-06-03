@@ -1,0 +1,45 @@
+# Hardened pppd options for RustChain Dial-Up Answering Modems (ttyACM0 / ppp0)
+# Matches Phase 2 requirements (MTU 576, fixed IPs, no compression overhead)
+
+# Fixed local and remote IP allocation for the line
+# Modify this per line (e.g., 10.0.0.1:10.0.0.2 for line 1, 10.0.0.1:10.0.0.3 for line 2)
+10.0.0.1:10.0.0.2
+
+# Subnet configuration
+netmask 255.255.255.255
+
+# Hardened MTU/MRU to prevent serialization latency and packet drops over 9600 baud
+mtu 576
+mru 576
+
+# Push local DNS address to the client (points to the local NAS resolver)
+ms-dns 10.0.0.1
+
+# Enable local device locking to prevent multiple processes from racing on the serial port
+lock
+
+# Require no authentication from the vintage client (PAP/CHAP can be enabled here if needed)
+noauth
+
+# Local line connection - do not monitor carrier detect (DreamPi line inducers might not toggle CD)
+local
+
+# Don't create a default route through the PPP client on the host
+nodefaultroute
+
+# Enable Proxy ARP to allow the client to be reached on the local network (if routed)
+proxyarp
+
+# Keepalive configurations
+lcp-echo-interval 30
+lcp-echo-failure 4
+
+# Disable compression methods that consume excessive CPU cycles on vintage processors (e.g., 386/68k)
+nobsdcomp
+nodeflate
+nopcomp
+noacf
+# novj         # Uncomment if the vintage TCP/IP stack does not support Van Jacobson header compression
+
+# Hardware flow control (RTS/CTS)
+crtscts
