@@ -29,6 +29,12 @@ mkdir -p /etc/ppp
 cp "${CONFIG_DIR}/ppp-options" /etc/ppp/options.ttyACM0
 echo "✓ Configured /etc/ppp/options.ttyACM0"
 
+# 2b. Deploy mgetty login.config for AutoPPP
+echo "⚙️ Deploying mgetty login.config..."
+mkdir -p /etc/mgetty+sendfax
+cp "${CONFIG_DIR}/login.config" /etc/mgetty+sendfax/login.config
+echo "✓ Configured /etc/mgetty+sendfax/login.config"
+
 # 3. Deploy and Load nftables Isolation Rules
 if ! command -v nft &> /dev/null; then
   echo "⚠️ Warning: nftables is not installed. Installing..."
