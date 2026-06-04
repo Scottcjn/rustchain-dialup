@@ -1,0 +1,9 @@
+# udev rules for RustChain Dial-Up stable modem naming (Bounty D11)
+# Maps USB serial modems to persistent, predictable symlinks (/dev/ttyModem0, /dev/ttyModem1)
+# based on their physical USB port path (ID_PATH) to prevent swap on reboot/re-insertion.
+
+# Line 1 - Physical USB Port 1.3
+SUBSYSTEM=="tty", ENV{ID_PATH}=="*-usb-0:1.3:1.0", SYMLINK+="ttyModem0", MODE="0660", GROUP="dialout"
+
+# Line 2 - Physical USB Port 1.4
+SUBSYSTEM=="tty", ENV{ID_PATH}=="*-usb-0:1.4:1.0", SYMLINK+="ttyModem1", MODE="0660", GROUP="dialout"

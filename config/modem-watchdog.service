@@ -1,0 +1,15 @@
+[Unit]
+Description=RustChain Dial-Up Modem Watchdog Daemon
+After=network.target udev.service
+Requires=udev.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /etc/rustchain/modem_watchdog.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

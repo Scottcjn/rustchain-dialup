@@ -35,6 +35,22 @@ mkdir -p /etc/mgetty+sendfax
 cp "${CONFIG_DIR}/login.config" /etc/mgetty+sendfax/login.config
 echo "✓ Configured /etc/mgetty+sendfax/login.config"
 
+# 2c. Deploy udev rules and watchdog daemon (Bounty D11)
+echo "⚙️ Deploying udev rules & watchdog..."
+cp "${CONFIG_DIR}/99-modems.rules" /etc/udev/rules.d/
+if command -v udevadm &> /dev/null; then
+  udevadm control --reload-rules && udevadm trigger || true
+fi
+mkdir -p /etc/rustchain
+cp "${CONFIG_DIR}/modem_watchdog.py" /etc/rustchain/
+chmod +x /etc/rustchain/modem_watchdog.py
+if [ -d /etc/systemd/system ]; then
+  cp "${CONFIG_DIR}/modem-watchdog.service" /etc/systemd/system/
+  systemctl daemon-reload || true
+  systemctl enable --now modem-watchdog.service || true
+fi
+echo "✓ Configured udev and watchdog service"
+
 # 3. Deploy and Load nftables Isolation Rules
 if ! command -v nft &> /dev/null; then
   echo "⚠️ Warning: nftables is not installed. Installing..."
