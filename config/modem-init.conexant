@@ -1,0 +1,78 @@
+# Conexant RD02-D400 / Dell NW147 init string (Bounty D1)
+#
+# This is the AT init sequence that mgetty sends to the answer modem on
+# RING-detect. It is the *production* string, not just a placeholder. Each
+# command has a documented reason; remove a command and a specific failure
+# mode comes back.
+#
+# Modem: Dell NW147 (Conexant RD02-D400 USB CDC-ACM)
+# Linux device: /dev/ttyACM0 (or /dev/ttyModem0 via udev symlink)
+# Chipset: Conexant CX930xx-class
+#
+# Init string applied at every RING:
+#   AT&F1E0V1Q0&C1&D2S0=0
+#
+# Decoded, command by command:
+#
+#   AT&F1
+#       Load **factory profile 1** (the conservative one). &F0 sometimes
+#       restores a vendor demo profile with hardware-flow-control
+#       *disabled*; &F1 explicitly enables RTS/CTS, which the Pi's UART
+#       bridge needs at 115200. &F on this chipset is *not* enough —
+#       several revisions of the RD02-D400 ship with profile 0 as the
+#       default and don't auto-promote to profile 1 on power-cycle.
+#       The ASSESSMENT-2026-06-02 review called this out by name.
+#
+#   E0
+#       Disable **local echo**. The client (Dreamcast, 386/486) is
+#       already echoing locally for terminal display; if the modem
+#       also echoes, every typed character appears twice. E0 is
+#       non-negotiable for the BBS login flow.
+#
+#   V1
+#       **Verbose result codes** (OK / CONNECT / RING / NO CARRIER).
+#       Numeric codes (V0) are hostile to debuggability and break
+#       watchdog scripts that grep the mgetty log.
+#
+#   Q0
+#       **Quiet mode off** — actually "quiet mode off", i.e. result
+#       codes are *enabled*. Q1 (silent) hides NO CARRIER on hangup,
+#       which the watchdog uses to detect modem-reset.
+#
+#   &C1
+#       **DCD follows real carrier**. The default (&C0) on some
+#       Conexant firmware revisions holds DCD asserted permanently,
+#       so pppd's CD-wait never times out and a dead line looks
+#       "connected." &C1 is the only sane value.
+#
+#   &D2
+#       **DTR drop → hangup + reset to command mode**. &D0 (the
+#       default) ignores DTR transitions, so an mgetty `toggle-dtr y`
+#       between calls has no effect. The toggle-DTR feature is the
+#       watchdog's primary mechanism for clearing a stuck modem;
+#       &D0 silently breaks that loop.
+#
+#   S0=0
+#       **Disable auto-answer**. The modem will *not* pick up
+#       automatically on RING; mgetty controls the answer (ATA)
+#       explicitly so it can hand off cleanly to pppd or the BBS
+#       launcher. S0=1 is the default and is a race condition.
+#
+# Combined string: "AT&F1E0V1Q0&C1&D2S0=0"
+# Expected response: "OK\r\n" (within ~300ms on RD02-D400).
+# If the modem returns ERROR, watchdog should mark the port as
+# failed and escalate to modem_watchdog.py for hardware reset.
+
+# --- Validation command ------------------------------------------------------
+#
+# To manually test the init string against a real modem on a Pi:
+#
+#   sudo stty -F /dev/ttyModem0 115200 -echo -ixon -ixoff crtscts
+#   ( printf 'AT&F1E0V1Q0&C1&D2S0=0\r\n'; sleep 0.3 ) | sudo tee /dev/ttyModem0
+#
+# Expected last line: "OK".
+#
+# In the bench harness (tests/d1_harness/) we run the same string
+# against a pty-pair and verify the parser accepts "OK\r\n" and
+# rejects "ERROR\r\n". This is the byte-level guarantee the modem
+# will answer the call the same way in production.

@@ -1,0 +1,22 @@
+[Unit]
+Description=Generic mgetty (RustChain Dial-Up)
+Documentation=man:mgetty(8) https://github.com/Scottcjn/rustchain-dialup
+After=systemd-udevd.service
+Requires=systemd-udevd.service
+
+[Service]
+ExecStart=/usr/sbin/mgetty -n -r -s 115200 -x 3 /dev/%i
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+StandardInput=tty
+StandardOutput=tty
+TTYPath=/dev/%i
+TTYReset=yes
+TTYVHangup=yes
+UtmpIdentifier=%i
+# mgetty drops to the user/group of the line, so let it open the port.
+SupplementaryGroups=dialout
+
+[Install]
+WantedBy=multi-user.target
