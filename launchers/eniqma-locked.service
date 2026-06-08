@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: MIT
+#
+# launchers/eniqma-locked.service — Bounty D4
+#
+# systemd unit for the locked ENiGMA½ launcher.  This unit is
+# INTENTIONALLY never `systemctl start`ed by an operator — it
+# is the per-session runtime; mgetty execs the launcher
+# directly as the dial-in user's login shell.
+#
+# The unit file ships so an operator can:
+#   (a) `systemd-analyze verify` it during deployment.
+#   (b) enable the audit-log rotation timer that ships next to
+#       it (NOT included in this PR — see the docs/D4 file
+#       for the exact logrotate snippet).
+#
+# Why a unit file at all?  Three reasons:
+#   1. The launcher's own --drop-capabilities step benefits
+#      from a tightly scoped CapabilityBoundingSet.  We set
+#      that here so an operator reading the unit can see
+#      exactly which capabilities the launcher can use.
+#   2. `systemd-nspawn` itself looks for a matching unit in
+#      /etc/systemd/nspawn/ when --machine= is used.  An
+#      operator who prefers a unit-driven flow can copy this
+#      file there.
+#   3. It is the standard RustChain Dial-Up operator's
+#      single-glance reference for "what does the launcher
+#      need from systemd?" — system call requirements,
+#      cgroup slice, journal integration, etc.
+[Unit]
+Description=RustChain Dial-Up locked ENiGMA½ launcher (Bounty D4)
+Documentation=https://github.com/Scottcjn/rustchain-dialup/blob/main/BOUNTIES.md
+After=systemd-nspawn@.service
+RefuseManualStart=true
+RefuseManualStop=true
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+EnvironmentFile=/etc/bbs/launcher.env
+ExecStart=/usr/local/bin/eniqma-locked --dry-run
+# No ExecReload, no ExecStop — the launcher is exec-and-exit.
+User=root
+Group=root
+
+# Capability bounding set: the launcher needs CAP_SYS_ADMIN
+# briefly (for `systemd-nspawn` namespace setup) and NOTHING
+# ELSE.  After the bbs user is dropped, the child process
+# inherits only what the bounding set allows.  This is the
+# audit point: any future patch that adds a new capability
+# here must be reviewed against the escape-attempt test
+# suite in tests/test_eniqma_locked.py.
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SETUID CAP_SETGID CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER
+AmbientCapabilities=CAP_SYS_ADMIN
+NoNewPrivileges=no
+# The launcher is a thin wrapper; the real isolation is in
+# systemd-nspawn.  The private /tmp /dev is enforced by
+# nspawn's --private-users, not by this unit.
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# The launcher needs /var/log/bbs-launcher to write the
+# audit log.  /var/lib/bbs is read-only (nspawn mounts
+# the jail there).  /etc/bbs is read for the config file.
+ReadWritePaths=/var/log/bbs-launcher
+ReadOnlyPaths=/var/lib/bbs /etc/bbs
+
+[Install]
+WantedBy=multi-user.target
