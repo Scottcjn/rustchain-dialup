@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Zlib */
 #ifndef FE_H
 #define FE_H
 

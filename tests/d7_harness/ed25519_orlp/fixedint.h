@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Zlib */
 /*
     Portable header to provide the 32 and 64 bits type.
 

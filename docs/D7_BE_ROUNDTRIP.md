@@ -25,9 +25,9 @@ in the rest of the ecosystem (libsodium, OpenSSL EVP, PyNaCl).
 | File | Purpose |
 |---|---|
 | `tests/d7_harness/rcc_crypto_be.h` | Header for the sign-only harness; same surface as `gateway/client/rcc_crypto.h`. |
-| `tests/d7_harness/rcc_crypto_be.c` | Vendored SHA-256 (byte-clean FIPS 180-4) + standard Ed25519 via orlp/ed25519 (MIT). |
+| `tests/d7_harness/rcc_crypto_be.c` | Vendored SHA-256 (byte-clean FIPS 180-4) + standard Ed25519 via orlp/ed25519 (zlib, see SPDX headers). |
 | `tests/d7_harness/d7_sign.c` | Sign-only harness: takes `--seed-hex --miner --wallet [--nonce]`, prints `public_key`, `commitment`, `sign_msg`, `signature` as hex. |
-| `tests/d7_harness/ed25519_orlp/` | Vendored orlp/ed25519 (MIT) — pure C99, no architecture-specific assembly, RFC 8032 conformant. |
+| `tests/d7_harness/ed25519_orlp/` | Vendored orlp/ed25519 (zlib) — pure C99, no architecture-specific assembly, RFC 8032 conformant. SPDX-License-Identifier: Zlib is present in every file. |
 | `tests/d7_harness/build.sh` | Builds the harness for host (x86_64), PowerPC 64 BE, S/390x BE. Requires `gcc-powerpc64-linux-gnu`, `gcc-s390x-linux-gnu`, `qemu-user-static`. |
 | `tests/test_d7_bigendian.py` | Pytest entry point: 14 tests covering byte-for-byte equality with the Python reference, RFC 8032 TV1 conformance, and a second (seed, miner, wallet, nonce) tuple. |
 | `docs/D7_BE_ROUNDTRIP.md` | This file. |
@@ -126,12 +126,65 @@ or replaced. This D7 deliverable sidesteps the issue by using
 orlp/ed25519 (a clean RFC 8032 implementation) and is a reference
 for what a future D6/D7-compatible port should use.
 
+## v2 changes (2026-06-09) — review-feedback follow-up
+
+Scottcjn's review of the v1 head flagged five issues. The v2 commits
+address every one of them.
+
+1. **Big-endian proof can skip entirely** — `test_be_binary_present`
+   now `pytest.fail`s (not `pytest.skip`s) when the big-endian
+   binaries are missing. A green `pytest` without the BE binary is
+   not a proof — it is a no-op. The test prints the exact one-line
+   command to install the cross toolchain and rebuild. A new
+   `REQUIRED_TARGETS` list (`ppc64 BE`, `s390x BE`) drives this; the
+   host `x86_64` remains optional for local debug.
+
+2. **Bundled verifier missing `S < L` check** — `d7_sign.c` now has
+   a `self_verify(pk, sig, msg, msg_len)` function that does a full
+   canonical RFC 8032 verify including:
+     - `signature[63] & 224 == 0` (high bits clear, S in `[0, L)`)
+     - `S < L` little-endian compare against the group order
+       `0xed d3 f5 5c ... 0x10` (prevents `(R, S) -> (R, S + L)`
+       malleability — the bug Scottcjn flagged)
+     - `ge_frombytes_negate_vartime` on the public key (group element)
+     - `8 * [S] * B = R` equation check
+   It prints `verify : OK` or `verify : FAIL: <reason>`. The
+   `test_v1_self_verify_ok` and
+   `test_rfc8032_tv1_signature_matches_empty_msg` tests assert the
+   OK on every target.
+
+3. **RFC vectors declared but never asserted** — The harness's public
+   key now actually gets compared against `RFC1["expected_pk"]`
+   (RFC 8032 TV1: `d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a`)
+   on every target via `test_rfc8032_tv1_pk_matches`. The harness's
+   self-verify also runs over the RFC seed via
+   `test_rfc8032_tv1_signature_matches_empty_msg`, asserting the
+   signature is canonical even on the wire format sign_msg.
+
+4. **Seed via argv leaks to history** — the harness now prefers
+   `D7_SEED_HEX` (env var) over `--seed-hex` (argv). If `--seed-hex`
+   is passed, a stderr warning is emitted. Real wallet tooling should
+   use the env var; the canonical test vectors can still be passed
+   via `--seed-hex` but the warning makes the leak explicit.
+
+5. **License: upstream orlp/ed25519 is zlib, not MIT** — every
+   vendored file in `tests/d7_harness/ed25519_orlp/` now has the
+   `SPDX-License-Identifier: Zlib` header. The `d7_sign.c` file is
+   `SPDX-License-Identifier: MIT` (Hermes-authored). The docs
+   have been updated to reflect this.
+
+The `volatile memset` of the seed buffer at the end of `main()` is
+a small additional hardening: while the compiler is allowed to keep
+the seed in registers, the memset forces the write to memory, so
+`/proc/<pid>/mem` after exit cannot recover it. (Not a substitute
+for proper key-handling, but cheap.)
+
 ## File-by-file change summary
 
 - **new** `tests/d7_harness/rcc_crypto_be.h` (36 lines): harness API.
 - **new** `tests/d7_harness/rcc_crypto_be.c` (~150 lines): SHA-256 + orlp/ed25519 wrapper.
 - **new** `tests/d7_harness/d7_sign.c` (~110 lines): sign-only harness.
-- **new** `tests/d7_harness/ed25519_orlp/` (~12 files, MIT-licensed orlp/ed25519 vendored copy).
+- **new** `tests/d7_harness/ed25519_orlp/` (~12 files, zlib-licensed orlp/ed25519 vendored copy).
 - **new** `tests/d7_harness/build.sh` (~40 lines): build script.
 - **new** `tests/test_d7_bigendian.py` (~270 lines): 14-test pytest entry point.
 - **new** `docs/D7_BE_ROUNDTRIP.md` (this file).

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Zlib */
 #ifndef ED25519_H
 #define ED25519_H
 

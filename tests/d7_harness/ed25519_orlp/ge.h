@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Zlib */
 #ifndef GE_H
 #define GE_H
 
