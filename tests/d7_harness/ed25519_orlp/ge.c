@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Zlib */
 #include "ge.h"
 #include "precomp_data.h"
 

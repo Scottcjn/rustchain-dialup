@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Zlib */
 #include "fixedint.h"
 #include "sc.h"
 

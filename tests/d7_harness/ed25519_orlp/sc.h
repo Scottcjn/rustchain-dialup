@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Zlib */
 #ifndef SC_H
 #define SC_H
 
