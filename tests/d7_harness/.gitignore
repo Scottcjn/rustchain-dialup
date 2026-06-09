@@ -1,0 +1,11 @@
+# Prebuilt harness binaries (regenerate with `bash tests/d7_harness/build.sh`)
+d7_sign_host
+d7_sign_ppc64be
+d7_sign_s390x
+d7_sign_*
+!d7_sign.c
+
+# Python build/test artifacts
+__pycache__/
+*.pyc
+.pytest_cache/
