@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+"""
+ENiGMA½ integration — launch the RustChain door from BBS login.config.
+
+This is the locked launcher referenced in config/login.config:
+  * - - - /usr/local/bin/enigma2-launcher
+
+It wraps rustchain_door.py and ensures:
+  - No host shell escape (exec only the door script)
+  - The miner_id comes from the BBS user's environment or a config file
+  - On exit, the BBS user returns to the BBS menu (not a shell)
+
+Install:
+  cp bbs/enigma2-launcher /usr/local/bin/enigma2-launcher
+  chmod +x /usr/local/bin/enigma2-launcher
+
+Config file (optional): /etc/rustchain-bbs.conf
+  MINER_ID=your-wallet-id
+  NODE_URL=https://rustchain.org
+"""
+from __future__ import annotations
+
+import os
+import sys
+import subprocess
+
+DOOR_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rustchain_door.py")
+CONFIG_FILE = "/etc/rustchain-bbs.conf"
+
+
+def load_config() -> dict[str, str]:
+    """Load config from /etc/rustchain-bbs.conf if it exists."""
+    config = {}
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                key, _, value = line.partition("=")
+                config[key.strip()] = value.strip().strip('"').strip("'")
+    return config
+
+
+def main() -> int:
+    config = load_config()
+
+    # Resolve miner_id: env > config > BBS_USER
+    miner_id = (
+        os.environ.get("RC_MINER_ID")
+        or config.get("MINER_ID")
+        or os.environ.get("BBS_USER", "")
+    )
+
+    node_url = (
+        os.environ.get("RC_NODE_URL")
+        or config.get("NODE_URL")
+        or "https://rustchain.org"
+    )
+
+    if not miner_id:
+        sys.stderr.write("RustChain BBS Door: no miner ID configured.\n")
+        sys.stderr.write("Set RC_MINER_ID or add MINER_ID= to /etc/rustchain-bbs.conf\n")
+        return 1
+
+    # Launch the door (no shell escape — direct exec)
+    # Sanitize env: only pass safe variables, block PYTHONINSPECT/PYTHONPATH/LD_PRELOAD etc.
+    _SAFE_ENV_KEYS = {
+        "PATH", "HOME", "USER", "LANG", "LC_ALL", "LC_CTYPE", "TERM",
+        "SHELL", "LOGNAME", "TMPDIR", "TZ", "HOSTNAME",
+    }
+    env = {k: v for k, v in os.environ.items() if k in _SAFE_ENV_KEYS}
+    env["RC_MINER_ID"] = miner_id
+    env["RC_NODE_URL"] = node_url
+    env["PYTHONDONTWRITEBYTECODE"] = "1"  # Prevent .pyc cache abuse
+
+    try:
+        result = subprocess.run(
+            [sys.executable, DOOR_SCRIPT, "--interactive", "--miner-id", miner_id, "--node-url", node_url],
+            env=env,
+            stdin=sys.stdin,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+        )
+        return result.returncode
+    except KeyboardInterrupt:
+        return 0
+    except Exception as e:
+        sys.stderr.write(f"RustChain BBS Door error: {e}\n")
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
