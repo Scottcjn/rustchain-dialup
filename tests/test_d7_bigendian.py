@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """D7 big-endian signature round-trip proof — pytest entry point.
 
 The acceptance rubric for Bounty D7 (see BOUNTIES.md) is:

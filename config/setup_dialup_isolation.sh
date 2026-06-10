@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # RustChain Dial-Up Network Isolation — setup (HYBRID of #6 + #4)
 # Applies the nftables isolation ruleset with correct persistence, and OPTIONALLY
 # configures CHAP authentication for PPP clients (off by default — the oldest

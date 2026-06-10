@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 /* rcc_crypto.c — see rcc_crypto.h.
  *
  * SHA-256: vendored public-domain-style implementation (FIPS 180-4), endian-clean.

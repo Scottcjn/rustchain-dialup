@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 /* rcc_crypto_be.h — Big-endian-friendly version of rcc_crypto.h
  *
  * The existing gateway/client/rcc_crypto.h is OpenSSL-only by default; this

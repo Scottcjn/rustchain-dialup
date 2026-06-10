@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 test_d3_isolation.py — Automated proof of D3 (Network-isolation ruleset) for
 the RustChain Dial-Up bounty #D3.

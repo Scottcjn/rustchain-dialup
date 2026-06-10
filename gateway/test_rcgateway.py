@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """
 End-to-end loopback test for rcgateway — the Phase 4a acceptance harness.
 

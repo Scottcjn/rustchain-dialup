@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 /* vintage_client.c — RustChain dial-up vintage miner client (bounty D6 reference).
  *
  * The vintage half of the split miner (see ../../docs/MINER_GATEWAY.md). Runs on the

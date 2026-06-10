@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # mask-modemmanager-for-acm.sh — RustChain Dial-Up (Bounty D1)
 #
 # Why this script exists:

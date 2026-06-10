@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # Build the D7 round-trip harness for host (x86_64) and big-endian
 # targets (PowerPC 64-bit BE, IBM S/390x). The big-endian binaries
 # are statically linked and run under qemu-user-static; the host

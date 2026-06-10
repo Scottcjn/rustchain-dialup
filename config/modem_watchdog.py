@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """
 Modem Watchdog Daemon — config/modem_watchdog.py
 Periodically checks the health of dial-up modems by querying them with AT commands.

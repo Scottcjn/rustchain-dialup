@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """
 Reference signer + test-vector oracle for vintage_client.c.
 

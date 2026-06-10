@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 /* rcc_crypto_be.c — Standard RFC 8032 Ed25519 + vendored SHA-256, big-endian-safe.
  *
  * Two goals for this file:

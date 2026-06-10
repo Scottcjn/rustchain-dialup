@@ -1,3 +1,5 @@
+[![BCOS Certified](https://img.shields.io/badge/BCOS-Certified-brightgreen?style=flat)](BCOS.md)
+
 # RustChain Dial-Up
 
 > *Everyone else is looking at the future. We're looking at the past to develop the future.*

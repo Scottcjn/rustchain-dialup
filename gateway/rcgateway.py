@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """
 rcgateway — RustChain Dial-Up miner gateway (Phase 4a skeleton).
 

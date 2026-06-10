@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # Setup script to configure hardened pppd options and network isolation rules.
 # Part of Bounties D2 & D3 implementation for RustChain Dial-Up.
 

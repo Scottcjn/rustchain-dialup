@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 /* rcc_crypto.h — crypto primitives for the RustChain dial-up vintage client.
  *
  * Two things the vintage box must do LOCALLY (the proof-of-antiquity invariant):

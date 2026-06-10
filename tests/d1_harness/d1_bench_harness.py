@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """
 d1_bench_harness.py — RustChain Dial-Up (Bounty D1)
 ====================================================

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MIT
 #
 # launchers/eniqma-locked.py — Bounty D4 "ENiGMA½ locked launcher"
 #
