@@ -18,8 +18,8 @@ launcher actually delivers the rubric in BOUNTIES.md.
 | Rubric clause | How this PR satisfies it |
 |---|---|
 | "BBS reachable on the terminal line" | The launcher is wired into `config/login.config` as the terminal-mode fallback. After mgetty prints a "CONNECT" and waits for LCP, if no LCP comes in the window, mgetty execs the launcher per the `/etc/mgetty/login.config` rule in `config/launchers/eniqma-locked.conf`. |
-| "via an unprivileged launcher" | `_lookup_unprivileged_user()` refuses UID 0. The launcher then `os.execv()`s `systemd-nspawn` with `--user=<bbs_uid> --group=<bbs_gid>`, so the BBS process never runs as root. |
-| "no host shell escape" | Covered by `tests/test_eniqma_locked.py` (13 cases, all passing). Specifically: missing jail refused, symlinked jail refused, symlinked canonical file refused, symlinked audit log refused, $SHELL ignored, session-id sanitised, audit-log append-only, audit-log mode 0640. |
+| "via an unprivileged launcher" | `_lookup_unprivileged_user()` refuses UID 0 (host-side guard), `_jail_user_uid()` refuses a jail account that is UID 0 inside the jail, and the container is run with `--user=<name>`, which `systemd-nspawn` resolves in the **jail's** `/etc/passwd` — that is what makes the BBS process non-root. `systemd-nspawn` has no `--group=` option; the gid comes from the same jail passwd entry. The launcher itself stays root until the fork because building the namespaces needs `CAP_SYS_ADMIN`. |
+| "no host shell escape" | Covered by `tests/test_eniqma_locked.py` (13 cases) + `tests/test_eniqma_locked_exec.py` (37 cases covering everything `--dry-run` skips). Specifically: missing jail refused, symlinked jail refused, symlinked canonical file refused, symlinked audit log refused, $SHELL ignored, session-id sanitised, audit-log append-only, audit-log mode 0640. |
 | "OS accounts ≠ BBS accounts" | The launcher's only privilege model is a separate unprivileged user (default `bbs`, UID ≥ 1). The /etc/passwd inside the jail is independent of the host /etc/passwd. |
 | "Include the launcher" | `launchers/eniqma-locked.py` (411 lines, type-hinted, no third-party deps). |
 | "a documented escape-attempt test" | `tests/test_eniqma_locked.py` (13 cases) + this document + inline comments in the launcher (`# Escape-attempt contract` block). |
@@ -30,7 +30,8 @@ launcher actually delivers the rubric in BOUNTIES.md.
 launchers/eniqma-locked.py          # the launcher (Python 3.10+)
 launchers/eniqma-locked.service     # systemd unit reference
 config/launchers/eniqma-locked.conf # mgetty login.config snippet
-tests/test_eniqma_locked.py         # 13 escape-attempt tests
+tests/test_eniqma_locked.py         # 13 escape-attempt tests (--dry-run)
+tests/test_eniqma_locked_exec.py    # 37 tests of the container path
 docs/D4_LOCKED_LAUNCHER.md          # this file
 ```
 
@@ -107,17 +108,53 @@ The order of rules in `login.config` is significant.  `/AutoPPP/`
 must precede `*`.  See the parent `config/login.config` for the
 documented layout.
 
+### 3.6 What actually gets run
+
+The launcher never execs a shell and never execs `$SHELL`.  It builds
+one fixed argv and runs it as a child, so it can write the closing
+audit record:
+
+```bash
+/usr/local/bin/eniqma-locked --print-argv          # review it before dialling in
+/usr/bin/systemd-nspawn --quiet --as-pid2 --machine=bbs-<session> \
+    --directory=/var/lib/bbs/jail --private-users=65536 --user=bbs \
+    -- /usr/bin/env -i HOME=/bbs TERM=dumb node /bbs/enigma-bbs.js
+```
+
+Two things about that line are easy to get wrong and both make it
+unrunnable: `systemd-nspawn` has **no** `--group=` option (it dies with
+`unrecognized option`), and `--boot` **may not be combined with
+`--as-pid2`** — `--boot` would run the container's init and pass the
+trailing words to it as kernel-command-line arguments instead of
+executing them.  `tests/test_eniqma_locked_exec.py` checks the argv
+against the real option table.
+
+`--private-users=65536` maps container UID 0 to host UID 65536, so root
+inside the jail is nobody outside it.  The jail tree must be readable by
+the shifted range; pass `--private-users off` if the operator's kernel
+has user namespaces disabled, or shift the tree once with
+`systemd-nspawn --private-users=65536 --private-users-ownership=chown`.
+
+The audit log gets one `start` record and then exactly one of `exit`
+(with the container's status), `exec_failed` (the container manager
+could not be executed at all) or `refused` (validation failed before
+anything ran).  A `start` with no closing record means the launcher
+itself was killed.
+
 ## 4. Reviewer test recipe
 
 The test suite is the contract.  It runs without sudo and without
 network access:
 
 ```bash
-cd /opt/hermes-bounty-ops/workspaces/rustchain-dialup/dialup-d4
-python3 -m pytest tests/test_eniqma_locked.py -v
+python3 -m pytest tests/test_eniqma_locked.py tests/test_eniqma_locked_exec.py -v
 ```
 
-Expected output: `13 passed in <1s`.  Each test name is a
+Expected output: `50 passed in <2s`.  The first file drives the
+launcher as a subprocess with `--dry-run`; the second one covers the
+part `--dry-run` returns before — the `systemd-nspawn` argv, the
+machine name, jail validation against a real merged-`/usr` rootfs, and
+the audit records written when the container ends.  Each test name is a
 self-documenting claim about the launcher's contract.  If you are
 reviewing a patch to the launcher, the test that fails is the one
 that broke.  The tests are:
@@ -151,13 +188,13 @@ is mapped to the test that proves it.
 
 | Attempt | What a captive user might try | What stops it |
 |---|---|---|
-| **Swap the jail root for `/home`** | Symlink `/var/lib/bbs/jail` to `/home` so the launcher reads host user files | `_validate_jail` rejects any symlink in the path (`test_refuses_symlinked_jail_root`) |
-| **Replace the BBS binary with a shell** | Symlink `/bbs/enigma-bbs.js` to `/bin/sh` | `_validate_jail` rejects any symlink in the canonical paths (`test_refuses_symlinked_canonical_file`) |
+| **Swap the jail root for `/home`** | Symlink `/var/lib/bbs/jail` to `/home` so the launcher reads host user files | `_validate_jail` walks every real component from `/` down to the jail root and rejects a symlink at any of them (`test_refuses_symlinked_jail_root`, `test_symlinked_ancestor_of_the_jail_is_rejected`) |
+| **Replace the BBS binary with a shell** | Symlink `/bbs/enigma-bbs.js` to `/bin/sh` | `_validate_jail` rejects a canonical file whose symlink resolves **outside** the jail (`test_refuses_symlinked_canonical_file`). Links that stay inside are normal — `bin/sh -> dash` and `lib -> usr/lib` ship in every Debian rootfs (`test_merged_usr_rootfs_is_accepted`) |
 | **Drop the audit log to /dev/null** | Symlink the audit log to `/dev/null` after first session | `_ensure_audit_log` checks for symlinks before open and refuses to follow them (`test_refuses_audit_log_symlink`) |
 | **Inject `$SHELL` from the dial-in prompt** | Send `SHELL=/bin/bash` via Telnet NAWS or similar | The launcher's safe-env allow-list only includes `TERM` and `LANG`; the captured env is recorded in the audit log so an operator can grep for tampering (`test_shell_env_var_does_not_affect_launcher`) |
 | **Run a hostile bbs user** | Have the operator set `--bbs-user=root` by accident | The launcher refuses UID 0 (`test_root_bbs_user_refuses`) and refuses unknown users (`test_unknown_bbs_user_refuses`) |
 | **TOCTOU swap of canonical files** | Race the launcher's open() by replacing a canonical file with a symlink between resolve() and open() | `_validate_jail` re-checks each canonical file with `Path.is_symlink()` after the existence check (`test_refuses_symlinked_canonical_file` is the closest test; full TOCTOU protection would also require a `chflags` lockdown on the jail, which is operator-side) |
-| **Trick `execve` into running something else** | Set a magic env var or argv injection | `os.execv` is called with a fixed argv literal; the launcher has no `eval`/`subprocess.Popen(shell=True)` anywhere; the only env vars forwarded into the nspawn container are `HOME` and `TERM` (constants in the source) |
+| **Trick `execve` into running something else** | Set a magic env var or argv injection | `build_nspawn_argv()` returns a fixed argv (asserted free of shell metacharacters by `test_argv_runs_the_bbs_as_the_container_payload`, and printable for review with `--print-argv`); the launcher has no `eval`/`subprocess.Popen(shell=True)` anywhere; the only env vars forwarded into the nspawn container are `HOME` and `TERM` (constants in the source) |
 
 ## 6. What this PR does NOT do
 
@@ -170,6 +207,15 @@ not:
 - Handle ANSI/UTF-8 negotiation.  ENiGMA½ does that itself.
 - Implement rate limiting or DoS protection.  That belongs in
   the firewall (see the existing `nftables-dialup.conf`).
+- Bind a writable data directory into the jail.  ENiGMA½ message
+  bases therefore live inside the jail tree, not in a separate
+  `/var/lib/bbs/data`; adding `--bind=` is an operator/maintainer
+  decision (and interacts with `--private-users` ownership), so it is
+  deliberately not done here.
+- Read `config/launchers/eniqma-locked.conf` as a config file.  The
+  launcher takes no environment and no config file by design; that
+  snippet documents the mgetty rule, and the values are passed as
+  flags on that rule.
 - Implement any backdoor.  The audit log records every
   attempt to start, succeed, refuse, or fail.  An operator
   can `grep '"event": "refused"' /var/log/bbs-launcher/audit.jsonl`

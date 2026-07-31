@@ -75,9 +75,12 @@ def _build_minimal_jail(root: Path) -> None:
     (root / "etc").mkdir(exist_ok=True)
     (root / "bbs").mkdir(exist_ok=True)
     (root / "bin").mkdir(exist_ok=True)
-    # /etc/passwd: just a single comment line, enough to satisfy
-    # the existence check.
-    (root / "etc" / "passwd").write_text("root:x:0:0:root:/:/bin/sh\n")
+    # /etc/passwd: root plus the BBS account.  systemd-nspawn resolves
+    # --user= against the JAIL's passwd (it runs getent inside the
+    # container), so the launcher pre-checks it here too.
+    (root / "etc" / "passwd").write_text(
+        "root:x:0:0:root:/:/bin/sh\n" f"{BBS_USER}:x:999:999:bbs:/bbs:/bin/sh\n"
+    )
     # /bbs/enigma-bbs.js: a placeholder JS file (real ENiGMA½
     # ships a much larger main, but the launcher only checks
     # that the path exists).
