@@ -14,10 +14,13 @@
 #       for the exact logrotate snippet).
 #
 # Why a unit file at all?  Three reasons:
-#   1. The launcher's own --drop-capabilities step benefits
-#      from a tightly scoped CapabilityBoundingSet.  We set
-#      that here so an operator reading the unit can see
-#      exactly which capabilities the launcher can use.
+#   1. systemd-nspawn needs CAP_SYS_ADMIN to build the
+#      namespaces, so the launcher stays privileged until it
+#      forks; the unprivileged account is applied by nspawn's
+#      --user= inside the jail.  The CapabilityBoundingSet
+#      below is what bounds that window, so an operator
+#      reading the unit can see exactly which capabilities
+#      the launcher can use.
 #   2. `systemd-nspawn` itself looks for a matching unit in
 #      /etc/systemd/nspawn/ when --machine= is used.  An
 #      operator who prefers a unit-driven flow can copy this
@@ -37,8 +40,12 @@ RefuseManualStop=true
 Type=oneshot
 RemainAfterExit=no
 EnvironmentFile=/etc/bbs/launcher.env
-ExecStart=/usr/local/bin/eniqma-locked --dry-run
-# No ExecReload, no ExecStop — the launcher is exec-and-exit.
+# --dry-run here would validate and exit WITHOUT starting the BBS; the
+# real per-session invocation comes from mgetty (see
+# config/launchers/eniqma-locked.conf).
+ExecStart=/usr/local/bin/eniqma-locked --jail-root /var/lib/bbs/jail --bbs-user bbs --audit-log /var/log/bbs-launcher/audit.jsonl
+# No ExecReload, no ExecStop — the launcher runs the container as its
+# child and exits with the container's status.
 User=root
 Group=root
 
@@ -53,8 +60,9 @@ CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SETUID CAP_SETGID CAP_DAC_OVERRIDE CAP_C
 AmbientCapabilities=CAP_SYS_ADMIN
 NoNewPrivileges=no
 # The launcher is a thin wrapper; the real isolation is in
-# systemd-nspawn.  The private /tmp /dev is enforced by
-# nspawn's --private-users, not by this unit.
+# systemd-nspawn.  The private /tmp and /dev come from nspawn's
+# mount namespace, and container root is shifted off host root by
+# --private-users=, not by this unit.
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
