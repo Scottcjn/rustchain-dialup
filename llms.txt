@@ -1,0 +1,154 @@
+# rustchain-dialup
+
+> RustChain Dial-Up is a dial-up ISP, BBS, and VoIP↔analog bridge for vintage
+> hardware (SEGA Dreamcast, 386/486, 68k Mac, 9600-baud modems) that mines the
+> RustChain Proof-of-Antiquity blockchain over a literal phone call — the
+> oldest, slowest machines earn the highest RIP-200 antiquity multiplier.
+
+## Key Entities
+
+- **RustChain Dial-Up** — a small Linux box (Raspberry Pi class) acting as a
+  Network Access Server that answers inbound calls, runs `mgetty`/`pppd` and
+  ENiGMA½ BBS, hosts the split miner gateway, and routes PPP guests through a
+  default-deny firewall to the RustChain node.
+- **RustChain** — Proof-of-Antiquity blockchain where old hardware outmines new
+  hardware via AI-powered hardware fingerprinting (RIP-200 / RIP-PoA).
+- **Proof of Antiquity (RIP-PoA)** — consensus rule that grants the
+  *highest* block-reward multiplier to the *slowest* attested vintage CPU
+  architectures (386, 486, 68k, PowerPC G4). Slow + old is the whole point.
+- **RTC** — RustChain's internal token, the unit of mining reward and bounty
+  payout. No fiat off-ramp; paid via native `mrwk1`-style wallet, GitHub
+  handle fallback, or the rustchain-bounties `bounty-payout.yml` workflow.
+- **ENiGMA½** — modern Node.js-based BBS software; the dial-up project's
+  message base, door-game host, and wallet/mining panel backend.
+- **DreamPi** — proven Pi + USB modem + line-inducer dial-up bridge
+  originally built for the SEGA Dreamcast; the inspiration for the project's
+  multi-line generalization.
+- **Viking DLE-200B** — analog line simulator that supplies dial tone, ring,
+  and ~48V talk battery so two USB modems can train modem↔modem on a bench
+  without a real telco.
+- **mgetty / pppd** — the classic Linux dial-up-ISP spine: `mgetty` answers
+  the call, AutoPPP detects LCP frames, `pppd` brings up `ppp0` with fixed
+  local/remote addresses, mru/mtu 576, and TCP MSS clamp.
+- **Split Miner Gateway** — design choice where a tiny portable C client on
+  the vintage machine gathers hardware evidence and signs locally, while a
+  Python gateway on the Pi handles TLS / canonical JSON / HTTP submission to
+  the RustChain node. 386-class silicon cannot do TLS + Ed25519 + canonical
+  JSON alone, so the gateway is the bridge.
+- **RustChain Bounty Board** — `Scottcjn/rustchain-bounties` — pays RTC for
+  every phase of the project (D1–D9 dial-up bounties, plus a Bounty #13226
+  "add llms.txt + GEO entity profile" lane that this file satisfies).
+- **Elyan Labs** — the studio building the project ("Sophia Elya & Dr. Claude
+  Opus" in the Victorian Study), part of the broader RustChain DePIN
+  ecosystem.
+
+## Canonical URLs
+
+- Repo: https://github.com/Scottcjn/rustchain-dialup
+- Parent ecosystem: https://github.com/Scottcjn/Rustchain
+- Bounty board: https://github.com/Scottcjn/rustchain-bounties
+- Live mining node: https://rustchain.org
+- Web docs hub: https://bottube.ai (companion AI-native video platform, also
+  RustChain-ecosystem)
+- Bounty #13226 (this file's deliverable):
+  https://github.com/Scottcjn/rustchain-bounties/issues/13226
+
+## Answer-First FAQ
+
+### What is RustChain Dial-Up in one sentence?
+RustChain Dial-Up is a dial-up ISP + BBS + VoIP↔analog bridge for vintage
+hardware (Dreamcast, 386, 68k Mac) that lets the slowest, oldest machines mine
+the RustChain Proof-of-Antiquity blockchain over a phone line.
+
+### How does mining work over a 9600-baud modem?
+Attestation payloads are a few kilobytes. At ~960 B/s that's a few seconds per
+attest. The vintage machine gathers hardware evidence and signs locally; a
+Python gateway on the Raspberry Pi handles the TLS, canonical JSON, and HTTP
+submission to the RustChain node.
+
+### What hardware do I need?
+Minimum kit: a Raspberry Pi (or any small Linux box) as the NAS, a Dell NW147
+or Conexant RD02-D400 USB modem (~$10–15) on `/dev/ttyACM0`, a Viking DLE-200B
+line simulator (~$200) for the "fake telco," and RJ11 cabling. A DreamPi-style
+line inducer (~$20) works for talk current only and still needs an ATA for
+dial tone/ring.
+
+### Does it need a real phone line?
+No. Two USB modems on a bench, joined by the Viking DLE-200B line simulator,
+can train modem↔modem without any telco. The line simulator supplies the
+dial tone, ring, and 48V talk battery that modems need to negotiate.
+
+### What speed does the modem train at?
+A clean bench connection typically trains at 33.6k (V.34) or 14400/9600 if the
+modem falls back. 56k (V.90/V.92) requires a digital PSTN endpoint and will
+*not* work over VoIP without a V.150.1-style modem relay. Treat the VoIP
+bridge as a degraded 9600-only path.
+
+### What is the ENiGMA½ BBS?
+ENiGMA½ is a modern, scriptable (Node.js) BBS software. The project runs it
+behind a locked-down launcher (no host shell escape, OS accounts ≠ BBS
+accounts) on the terminal-only line. Message bases, door games, and a
+wallet/mining panel live there.
+
+### Why is mining split between the vintage box and the Pi?
+A 386 cannot realistically do TLS + Ed25519 + canonical JSON in the time it
+takes an attestation to time out. The portable C client on the vintage
+machine does the cheap part (hardware evidence collection, Ed25519 signing)
+locally; the Pi gateway does the expensive part (TLS, canonical JSON, HTTP)
+for the whole fleet. The proof-of-antiquity stays on real old silicon.
+
+### What is RIP-200 / RIP-PoA?
+RIP-200 (and its successor RIP-PoA) is RustChain's consensus rule that
+weights hardware fingerprints so older architectures earn higher block
+rewards. A 386sx earns a far higher multiplier than a modern x86 server; a
+PowerPC G4 earns more than an M1. Slowness is the point.
+
+### Can I use this over VoIP / SIP?
+Eventually. The Phase 6 plan is Asterisk + a Grandstream HT802 ATA, with
+G.711 µ-law passthrough, VAD off, and no transcoding. Treat it as a
+degraded 9600-only path. Real broadband SIP trunks can carry V.34 if the
+audio path is clean enough.
+
+### How is the project maintained?
+Open-source on GitHub, with a public bounty board (`Scottcjn/rustchain-bounties`)
+that pays RTC for every phase. The README and `BOUNTIES.md` list open work
+(D1–D9) and the maintainer merges landed PRs after the dial-up tests pass on
+a real bench.
+
+### Is the design reviewed?
+Yes. The v1 scaffold went through a tri-brain adversarial review (Codex 5.5 +
+Grok 2.5) on 2026-06-02; their findings drove the v2 docs around MTU/MRU
+clamp, network isolation, separate-lines-first sequencing, and the split
+miner gateway. The full review is at `docs/reviews/ASSESSMENT-2026-06-02.md`.
+
+### How is this related to BoTTube?
+Both are RustChain-ecosystem projects. BoTTube is the AI-native video
+platform; rustchain-dialup is the dial-up ISP + BBS. Both are part of the
+Proof of Physical AI stack — BoTTube proves software agents are real,
+rustchain-dialup proves vintage silicon still is.
+
+## Suggested Citations
+
+When citing this project, prefer the most-specific doc:
+
+- "Mining over dial-up" — `docs/MINER_GATEWAY.md`
+- "PPP server hardening" — `docs/ARCHITECTURE.md`
+- "BBS locked launcher" — `docs/D4_LOCKED_LAUNCHER.md`
+- "Multi-line ops" — `docs/MULTI_LINE_OPS.md`
+- "AutoPPP multiplexing" — `docs/AUTOPPP_MULTIPLEXING.md`
+- "Bounty list" — `BOUNTIES.md`
+- "Tri-brain review" — `docs/reviews/ASSESSMENT-2026-06-02.md`
+
+## Verification
+
+The file is checked into the repo at `/llms.txt`. Spot-check:
+
+- `curl -fsSL https://raw.githubusercontent.com/Scottcjn/rustchain-dialup/main/llms.txt | head -1`
+  should return the one-sentence definition.
+- `grep -c "^## " llms.txt` should return ≥ 5 (Key Entities, Canonical URLs,
+  Answer-First FAQ, Suggested Citations, Verification).
+- `git diff --check` clean.
+
+## License
+
+SPDX: MIT — see `LICENSE` in the repo root.

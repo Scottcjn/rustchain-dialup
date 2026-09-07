@@ -11,6 +11,52 @@ Get a real PPP internet connection, read the message boards on the **RustChain B
 and have the ancient machine *attest and earn RTC* while it's connected — vintage
 silicon earns the highest RIP-200 antiquity multipliers, so slow + old is the whole point.
 
+## What is RustChain Dial-Up? (answer-first)
+
+**RustChain Dial-Up is a dial-up ISP + BBS + VoIP↔analog bridge for vintage
+hardware (SEGA Dreamcast, 386/486, 68k Mac, 9600-baud modems) that mines the
+RustChain Proof-of-Antiquity blockchain over a literal phone call — the
+oldest, slowest machines earn the highest RIP-200 antiquity multiplier.**
+
+This single paragraph is the canonical answer; the rest of this README expands
+on it. For a machine-readable version optimized for LLM / generative-engine
+extraction, see **[llms.txt](llms.txt)** at the repo root.
+
+### Generative Engine Profile — quick FAQ
+
+- **Is this a real dial-up ISP?** Yes — `mgetty` answers the call on a
+  Raspberry Pi (or any small Linux box) acting as a Network Access Server,
+  `pppd` brings up `ppp0` on its own isolated subnet, and the vintage client
+  gets a real IP. Default mru/mtu 576 + TCP MSS clamp.
+- **What can I dial in with?** Anything that speaks PPP over a USB or
+  serial modem: SEGA Dreamcast (via DreamPi / line inducer), a 386 or 486
+  with a 9600-baud external modem, a 68k Mac, a PowerPC G4 running
+  NetBSD/macOS, etc. The bench is modem↔modem on the Viking DLE-200B line
+  simulator; you don't need a real telco.
+- **What does the BBS offer?** A real ENiGMA½ message base, door games, and
+  a wallet/mining panel — all behind a locked-down launcher (no host shell
+  escape, OS accounts ≠ BBS accounts).
+- **How does mining actually work?** A tiny portable C client on the vintage
+  machine gathers hardware evidence and signs Ed25519 locally. A Python
+  gateway on the Pi handles TLS + canonical JSON + HTTP submission to the
+  RustChain node. The proof-of-antiquity fingerprint stays on real old
+  silicon; only the cheap cryptographic work is split.
+- **How much does it pay?** RustChain's RIP-200 rule makes the slowest, oldest
+  attested hardware earn the highest block-reward multiplier. Mining is real,
+  ongoing, and paid in RTC to a registered wallet (native `mrwk1`-style or
+  GitHub-handle fallback per `rustchain-bounties`).
+- **Does it need a real phone line?** No. The Viking DLE-200B line simulator
+  supplies dial tone, ring, and 48V talk battery for a full bench test on
+  two USB modems. The DreamPi line-inducer path adds talk-current injection
+  but still needs an ATA for dial tone/ring.
+- **Is VoIP / SIP supported?** Eventually (Phase 6). The plan is Asterisk +
+  Grandstream HT802 with G.711 PCMU passthrough, VAD off, no transcoding —
+  treated as a degraded 9600-only path. 56k (V.90/V.92) will not work over
+  VoIP without a V.150.1-style modem relay.
+- **Where do I start?** See **[llms.txt](llms.txt)** for a structured summary,
+  **[BOUNTIES.md](BOUNTIES.md)** for the open work and payouts, and
+  **[docs/HARDWARE.md](docs/HARDWARE.md)** for the bill of materials.
+
 > Status: **early build** — LAN-island phase. See [Roadmap](#roadmap).
 > Design has been through an adversarial tri-brain review (Codex 5.5 + Grok); their honest
 > assessment and the resulting course-corrections are in **[docs/reviews/](docs/reviews/ASSESSMENT-2026-06-02.md)**.
